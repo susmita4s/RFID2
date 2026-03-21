@@ -1,0 +1,102 @@
+:root {
+    --navy-dark: #0f172a;
+    --navy-light: #1e293b;
+    --cyan-primary: #06b6d4;
+    --text-muted: #94a3b8;
+}
+
+.bg-dark-navy {
+    background-color: var(--navy-dark);
+}
+
+.branding-section {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    position: relative;
+}
+
+.text-cyan {
+    color: var(--cyan-primary) !important;
+}
+
+.login-card {
+    background: var(--navy-light);
+    border-radius: 20px;
+    border: 1px solid #334155;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+.form-container {
+    background: rgba(15, 23, 42, 0.5);
+    border-radius: 15px;
+}
+
+.custom-input {
+    background-color: #0f172a !important;
+    border: 1px solid #334155 !important;
+    color: white !important;
+    padding: 12px !important;
+}
+
+.custom-input::placeholder {
+    color: #475569;
+}
+
+.custom-input:focus {
+    border-color: var(--cyan-primary) !important;
+    box-shadow: 0 0 0 0.25rem rgba(6, 182, 212, 0.25) !important;
+}
+
+.btn-cyan {
+    background-color: var(--cyan-primary) !important;
+    border: none !important;
+    color: #0f172a !important;
+    transition: all 0.3s ease !important;
+}
+
+.btn-cyan:hover {
+    background-color: #22d3ee !important;
+    transform: translateY(-2px);
+}
+
+.btn-role {
+    background: #0f172a;
+    border: 1px solid #334155;
+    color: var(--text-muted);
+    padding: 10px;
+    transition: all 0.3s;
+}
+
+.btn-role.active {
+    background: var(--cyan-primary);
+    color: #0f172a;
+    border-color: var(--cyan-primary);
+    font-weight: bold;
+}
+
+.icon-circle {
+    width: 45px;
+    height: 45px;
+    background: rgba(6, 182, 212, 0.1);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--cyan-primary);
+}
+
+.text-light-muted {
+    color: #94a3b8;
+}
+
+.logo-box {
+    background: rgba(6, 182, 212, 0.1);
+    padding: 10px;
+    border-radius: 12px;
+    display: inline-block;
+}
+
+.demo-box {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
+    border: 1px dashed #334155;
+}
