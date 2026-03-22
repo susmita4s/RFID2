@@ -118,7 +118,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import './Login.css';
 import { ShieldLock, Wifi, Grid, Person } from 'react-bootstrap-icons';
 
-const Auth = ({ onLogin }) => {
+const Auth = ({ onLogin, setPage }) => {
     const [role, setRole] = useState('administrator');
 
     const handleSubmit = (e) => {
@@ -220,7 +220,15 @@ const Auth = ({ onLogin }) => {
                                 </button>
                             </form>
                             <div className="text-center">
-                                <p className="text-light-muted small">Don't have an account? <a href="#" className="text-cyan text-decoration-none">Register here</a></p>
+                                <p className="text-light-muted small">Don't have an account?{" "}
+                                    <span
+                                        onClick={() => setPage('register')}
+                                        className="text-cyan text-decoration-none"
+                                        style={{ cursor: "pointer" }}
+                                    >
+                                        Register here
+                                    </span>
+                                </p>
                             </div>
                         </div>
 
