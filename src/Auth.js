@@ -1,10 +1,20 @@
+
+
 // import React, { useState } from 'react';
 // import 'bootstrap/dist/css/bootstrap.min.css';
 // import './Login.css';
-// import { ShieldLock, Wifi, Grid, Person, PersonBadge } from 'react-bootstrap-icons';
+// import { ShieldLock, Wifi, Grid, Person } from 'react-bootstrap-icons';
 
-// const Login = () => {
+// const Auth = ({ onLogin, setPage }) => {
 //     const [role, setRole] = useState('administrator');
+
+//     const handleSubmit = (e) => {
+//         e.preventDefault();
+//         // This triggers the login function in your App.js
+//         if (onLogin) {
+//             onLogin(role);
+//         }
+//     };
 
 //     return (
 //         <div className="container-fluid vh-100 p-0 overflow-hidden">
@@ -23,7 +33,7 @@
 
 //                     <h1 className="display-4 fw-bold text-white">Smart School</h1>
 //                     <h1 className="display-4 fw-bold text-cyan mb-4">Management System</h1>
-
+                    
 //                     <p className="text-light-muted mb-5 mw-75">
 //                         Streamline attendance, payments, library, and student management with RFID technology.
 //                     </p>
@@ -63,13 +73,15 @@
 
 //                         {/* Role Toggle */}
 //                         <div className="role-toggle d-flex mb-4">
-//                             <button
+//                             <button 
+//                                 type="button"
 //                                 className={`btn-role flex-fill ${role === 'administrator' ? 'active' : ''}`}
 //                                 onClick={() => setRole('administrator')}
 //                             >
 //                                 <ShieldLock className="me-2" /> Administrator
 //                             </button>
-//                             <button
+//                             <button 
+//                                 type="button"
 //                                 className={`btn-role flex-fill ${role === 'parent' ? 'active' : ''}`}
 //                                 onClick={() => setRole('parent')}
 //                             >
@@ -78,7 +90,7 @@
 //                         </div>
 
 //                         <div className="form-container p-4">
-//                             <form>
+//                             <form onSubmit={handleSubmit}>
 //                                 <div className="mb-3">
 //                                     <label className="form-label text-white small">Email Address</label>
 //                                     <input type="email" className="form-control custom-input" placeholder="Enter your email" required />
@@ -95,7 +107,15 @@
 //                                 </button>
 //                             </form>
 //                             <div className="text-center">
-//                                 <p className="text-light-muted small">Don't have an account? <a href="#" className="text-cyan text-decoration-none">Register here</a></p>
+//                                 <p className="text-light-muted small">Don't have an account?{" "}
+//                                     <span
+//                                         onClick={() => setPage('register')}
+//                                         className="text-cyan text-decoration-none"
+//                                         style={{ cursor: "pointer" }}
+//                                     >
+//                                         Register here
+//                                     </span>
+//                                 </p>
 //                             </div>
 //                         </div>
 
@@ -111,26 +131,63 @@
 //     );
 // };
 
-// export default Login;
+// export default Auth;
 
 import React, { useState } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './Login.css';
-import { ShieldLock, Wifi, Grid, Person } from 'react-bootstrap-icons';
+import { ShieldLock, Wifi, Grid, Person, XCircleFill } from 'react-bootstrap-icons';
 
 const Auth = ({ onLogin, setPage }) => {
     const [role, setRole] = useState('administrator');
+    
+    // --- NEW: State for the Feature Popup ---
+    const [activeFeature, setActiveFeature] = useState(null);
+
+    // --- NEW: Content for the Popups ---
+    const featureInfo = {
+        rfid: {
+            title: "RFID Integration",
+            icon: <Wifi />,
+            description: "Our advanced RFID system provides real-time tracking of students. It automates attendance logs and sends instant notifications to parents' mobile devices as soon as a student scans their ID card."
+        },
+        secure: {
+            title: "Secure Access",
+            icon: <ShieldLock />,
+            description: "Security is our priority. We use end-to-end encryption for all student data. Role-based access ensures that Administrators and Parents only see information relevant to their permissions."
+        },
+        management: {
+            title: "Complete Management",
+            description: "A truly all-in-one solution. From fee collection tracking to library book management and automated report card generation, EduScan handles the heavy lifting of school administration.",
+            icon: <Grid />
+        }
+    };
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        // This triggers the login function in your App.js
         if (onLogin) {
             onLogin(role);
         }
     };
 
     return (
-        <div className="container-fluid vh-100 p-0 overflow-hidden">
+        <div className="container-fluid vh-100 p-0 overflow-hidden position-relative">
+            
+            {/* --- NEW: Feature Popup Modal --- */}
+            {activeFeature && (
+                <div className="feature-overlay" onClick={() => setActiveFeature(null)}>
+                    <div className="feature-popup-card" onClick={(e) => e.stopPropagation()}>
+                        <button className="close-popup" onClick={() => setActiveFeature(null)}>
+                            <XCircleFill />
+                        </button>
+                        <div className="icon-circle mb-3">{featureInfo[activeFeature].icon}</div>
+                        <h3 className="text-white mb-3">{featureInfo[activeFeature].title}</h3>
+                        <p className="text-light-muted">{featureInfo[activeFeature].description}</p>
+                        <button className="btn btn-cyan mt-3" onClick={() => setActiveFeature(null)}>Got it</button>
+                    </div>
+                </div>
+            )}
+
             <div className="row g-0 h-100">
                 {/* Left Side: Branding */}
                 <div className="col-lg-6 d-none d-lg-flex flex-column justify-content-center align-items-start p-5 branding-section">
@@ -148,25 +205,31 @@ const Auth = ({ onLogin, setPage }) => {
                     <h1 className="display-4 fw-bold text-cyan mb-4">Management System</h1>
                     
                     <p className="text-light-muted mb-5 mw-75">
-                        Streamline attendance, payments, library, and student management with RFID technology.
+                        <strong>Streamline attendance, payments, library, and student management with RFID technology. 
+                        </strong>
                     </p>
 
                     <div className="features mt-4">
-                        <div className="d-flex align-items-center mb-4">
+                        {/* FEATURE 1 */}
+                        <div className="feature-item d-flex align-items-center mb-4" onClick={() => setActiveFeature('rfid')}>
                             <div className="icon-circle me-3"><Wifi /></div>
                             <div>
                                 <h6 className="text-white mb-0">RFID Integration</h6>
                                 <small className="text-light-muted">Seamless card-based identification</small>
                             </div>
                         </div>
-                        <div className="d-flex align-items-center mb-4">
+
+                        {/* FEATURE 2 */}
+                        <div className="feature-item d-flex align-items-center mb-4" onClick={() => setActiveFeature('secure')}>
                             <div className="icon-circle me-3"><ShieldLock /></div>
                             <div>
                                 <h6 className="text-white mb-0">Secure Access</h6>
                                 <small className="text-light-muted">Role-based permissions for admin & parents</small>
                             </div>
                         </div>
-                        <div className="d-flex align-items-center mb-4">
+
+                        {/* FEATURE 3 */}
+                        <div className="feature-item d-flex align-items-center mb-4" onClick={() => setActiveFeature('management')}>
                             <div className="icon-circle me-3"><Grid /></div>
                             <div>
                                 <h6 className="text-white mb-0">Complete Management</h6>
@@ -184,7 +247,6 @@ const Auth = ({ onLogin, setPage }) => {
                             <p className="text-light-muted">Sign in to your account to continue</p>
                         </div>
 
-                        {/* Role Toggle */}
                         <div className="role-toggle d-flex mb-4">
                             <button 
                                 type="button"
@@ -206,11 +268,11 @@ const Auth = ({ onLogin, setPage }) => {
                             <form onSubmit={handleSubmit}>
                                 <div className="mb-3">
                                     <label className="form-label text-white small">Email Address</label>
-                                    <input type="email" className="form-control custom-input" placeholder="Enter your email" required />
+                                    <input type="email" className="form-control custom-input" placeholder="Eg:abc@gmail.com" required />
                                 </div>
                                 <div className="mb-4">
                                     <div className="d-flex justify-content-between">
-                                        <label className="form-label text-white small">Password</label>
+                                        <label className="form-label text-white small"></label>
                                         <a href="#" className="text-cyan text-decoration-none small">Forgot Password?</a>
                                     </div>
                                     <input type="password" className="form-control custom-input" placeholder="Enter your password" required />
@@ -232,7 +294,6 @@ const Auth = ({ onLogin, setPage }) => {
                             </div>
                         </div>
 
-                        {/* Demo Credentials */}
                         <div className="demo-box mt-4 p-3 text-center">
                             <p className="text-light-muted small mb-1">Demo Credentials</p>
                             <span className="text-white small opacity-75">Email: demo@eduscan.com   Pass: demo123</span>

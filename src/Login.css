@@ -1,102 +1,210 @@
+/* Import Modern Font */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
 :root {
-    --navy-dark: #0f172a;
-    --navy-light: #1e293b;
-    --cyan-primary: #06b6d4;
-    --text-muted: #94a3b8;
+  /* DARK MODE (Default - Deep Seagreen) */
+  --bg-main: #051614;
+  --bg-card: #0a2421;
+  --bg-input: #0d2d2a;
+  --text-primary: #ffffff;
+  --text-muted: #8ba8a5;
+  --accent: #20b2aa;
+  --accent-hover: #1b9b94;
+  --border: #1a3d3a;
+  --card-shadow: rgba(0, 0, 0, 0.4);
+  --branding-gradient: linear-gradient(135deg, #051614 0%, #0a2e2a 100%);
+  --overlay-bg: rgba(0, 0, 0, 0.85);
 }
 
-.bg-dark-navy {
-    background-color: var(--navy-dark);
+/* --- REFINED WHITE MODE (Arctic Teal) --- */
+[data-theme='light'] {
+  --bg-main: #f1f5f9;          /* Cleaner, cool-toned light grey */
+  --bg-card: #ffffff;          /* Crisp white */
+  --bg-input: #f8fafc;         /* Subtly different from card for depth */
+  --text-primary: #0f172a;     /* Deep slate (better for eyes than pure black) */
+  --text-muted: #64748b;       /* Muted slate blue */
+  --accent: #0d9488;           /* Slightly deeper teal for better light-mode contrast */
+  --accent-hover: #0f766e;
+  --border: #e2e8f0;           /* Soft, modern borders */
+  --card-shadow: rgba(15, 23, 42, 0.08);
+  --branding-gradient: linear-gradient(135deg, #e2e8f0 0%, #f1f5f9 100%);
+  --overlay-bg: rgba(255, 255, 255, 0.9);
 }
 
+/* --- GLOBAL STYLES --- */
+body {
+  font-family: 'Inter', sans-serif; /* Apply modern font */
+  color: var(--text-primary);
+  background-color: var(--bg-main);
+  transition: background-color 0.3s ease;
+}
+
+/* --- LAYOUT & BOXES --- */
 .branding-section {
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-    position: relative;
-}
-
-.text-cyan {
-    color: var(--cyan-primary) !important;
+  background: var(--branding-gradient);
+  border-right: 1px solid var(--border);
+  transition: all 0.3s ease;
 }
 
 .login-card {
-    background: var(--navy-light);
-    border-radius: 20px;
-    border: 1px solid #334155;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  background: var(--bg-card);
+  border-radius: 24px; /* Slightly rounder for modern feel */
+  border: 1px solid var(--border);
+  box-shadow: 0 20px 40px var(--card-shadow);
+  padding: 10px; /* Internal spacing */
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Form Spacing & Inputs */
 .form-container {
-    background: rgba(15, 23, 42, 0.5);
-    border-radius: 15px;
+  padding: 1.5rem !important;
 }
 
 .custom-input {
-    background-color: #0f172a !important;
-    border: 1px solid #334155 !important;
-    color: white !important;
-    padding: 12px !important;
-}
-
-.custom-input::placeholder {
-    color: #475569;
+  background-color: var(--bg-input) !important;
+  border: 1.5px solid var(--border) !important; /* Slightly thicker border */
+  color: var(--text-primary) !important;
+  padding: 0.85rem 1.1rem;
+  border-radius: 12px;
+  font-weight: 400;
+  transition: all 0.2s ease;
 }
 
 .custom-input:focus {
-    border-color: var(--cyan-primary) !important;
-    box-shadow: 0 0 0 0.25rem rgba(6, 182, 212, 0.25) !important;
+  border-color: var(--accent) !important;
+  background-color: var(--bg-card) !important; /* Whiten on focus */
+  box-shadow: 0 0 0 4px rgba(32, 178, 170, 0.1) !important;
 }
 
-.btn-cyan {
-    background-color: var(--cyan-primary) !important;
-    border: none !important;
-    color: #0f172a !important;
-    transition: all 0.3s ease !important;
+/* Typography Overrides */
+h1, h2, h3 {
+  letter-spacing: -0.02em; /* Tighter modern tracking */
 }
 
-.btn-cyan:hover {
-    background-color: #22d3ee !important;
-    transform: translateY(-2px);
+.text-cyan { color: var(--accent) !important; }
+.text-white { color: var(--text-primary) !important; }
+.text-light-muted { color: var(--text-muted) !important; }
+
+/* Role Toggle Buttons */
+.role-toggle {
+  background: var(--bg-input);
+  padding: 6px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
 }
 
 .btn-role {
-    background: #0f172a;
-    border: 1px solid #334155;
-    color: var(--text-muted);
-    padding: 10px;
-    transition: all 0.3s;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 12px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
 }
 
 .btn-role.active {
-    background: var(--cyan-primary);
-    color: #0f172a;
-    border-color: var(--cyan-primary);
-    font-weight: bold;
+  background: var(--bg-card); /* Floating effect */
+  color: var(--accent) !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 
-.icon-circle {
-    width: 45px;
-    height: 45px;
-    background: rgba(6, 182, 212, 0.1);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--cyan-primary);
+/* Action Button */
+.btn-cyan {
+  background-color: var(--accent) !important;
+  border: none !important;
+  color: #ffffff !important;
+  border-radius: 12px;
+  padding: 12px;
+  font-weight: 600;
+  transition: all 0.3s ease;
 }
 
-.text-light-muted {
-    color: #94a3b8;
+.btn-cyan:hover {
+  background-color: var(--accent-hover) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(20, 184, 166, 0.3);
 }
 
-.logo-box {
-    background: rgba(6, 182, 212, 0.1);
-    padding: 10px;
-    border-radius: 12px;
-    display: inline-block;
+/* Feature & Modal Styles */
+.feature-item {
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 14px;
+  border-radius: 18px;
 }
 
-.demo-box {
-    background: rgba(255, 255, 255, 0.03);
-    border-radius: 12px;
-    border: 1px dashed #334155;
+.feature-item:hover {
+  background: rgba(20, 184, 166, 0.08);
+  transform: translateX(12px);
+}
+
+.feature-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay-bg);
+  backdrop-filter: blur(12px); /* Heavier blur for focus */
+  z-index: 2000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.feature-popup-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  padding: 3rem;
+  border-radius: 32px;
+  max-width: 550px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.2);
+  animation: popupFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes popupFadeIn {
+  from { opacity: 0; transform: scale(0.95) translateY(30px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* Floating Theme Switcher */
+.theme-switch-btn {
+  position: fixed;
+  bottom: 30px; /* Moved to bottom for better thumb reach */
+  right: 30px;
+  z-index: 1050;
+  border-radius: 16px;
+  padding: 12px 20px;
+  font-weight: 600;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  box-shadow: 0 10px 25px var(--card-shadow);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.theme-switch-btn:hover {
+  transform: scale(1.05);
+  background: var(--accent);
+  color: white;
+}
+/* Placeholder Styling */
+.custom-input::placeholder {
+    color: var(--text-muted) !important;
+    opacity: 0.7; /* Enough to distinguish from typed text but still readable */
+    font-weight: 400;
+}
+
+/* Specific Browser Support */
+.custom-input::-webkit-input-placeholder { color: var(--text-muted); }
+.custom-input::-moz-placeholder { color: var(--text-muted); opacity: 0.7; }
+.custom-input:-ms-input-placeholder { color: var(--text-muted); }
+
+/* Ensure placeholder visibility in Light Mode specifically */
+[data-theme='light'] .custom-input::placeholder {
+    color: var(--text-muted) !important;
+    opacity: 0.8; /* Slightly darker in light mode for better accessibility */
 }
