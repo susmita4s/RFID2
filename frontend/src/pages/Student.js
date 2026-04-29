@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 const Students = () => {
   // --- State Management ---
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterGender, setFilterGender] = useState('All');
+  const [filterGender] = useState('All');
   const [filterClass, setFilterClass] = useState('All');
   const [filterDate, setFilterDate] = useState('');
   const [activeMenu, setActiveMenu] = useState(null);

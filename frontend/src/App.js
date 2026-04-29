@@ -41,7 +41,7 @@
 // export default App;
 
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Auth from './Auth';
 import Dashboard from './pages/Dashboard';
 import ParentPortal from './pages/ParentPortal';

@@ -1,0 +1,24 @@
+# Backend .gitignore
+
+# Dependencies
+node_modules/
+
+# Environment variables (contains secrets — never commit)
+.env
+
+# SQLite database file
+prisma/dev.db
+prisma/dev.db-journal
+
+# Prisma generated client
+# (regenerate with: npx prisma generate)
+# node_modules/@prisma/client
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db

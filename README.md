@@ -1,70 +1,101 @@
-# Getting Started with Create React App
+# 🏫 RFID School Management System
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A full-stack school management system powered by RFID technology. Manage student attendance, bus boarding, library access, and fee payments — all triggered by RFID card scans.
 
-## Available Scripts
+---
 
-In the project directory, you can run:
+## 📁 Project Structure
 
-### `npm start`
+```
+RFID2/
+├── backend/                  # Node.js + Express + Prisma API
+│   ├── prisma/
+│   │   ├── schema.prisma     # Database schema (SQLite / MySQL)
+│   │   └── dev.db            # SQLite development database
+│   ├── routes/               # API route handlers
+│   │   ├── auth.js           # Login, register, JWT
+│   │   ├── students.js       # Student CRUD + RFID lookup
+│   │   ├── attendance.js     # Mark & fetch attendance
+│   │   ├── bus.js            # Bus boarding logs
+│   │   ├── library.js        # Borrow / return books
+│   │   └── payments.js       # Fee management
+│   ├── server.js             # Express app entry point
+│   ├── seed.js               # Populate DB with demo data
+│   ├── check.js              # DB health check utility
+│   ├── make-admin.js         # Promote user to admin via CLI
+│   ├── .env                  # Environment variables (not committed)
+│   └── package.json
+│
+└── frontend/                 # React.js web interface
+    ├── public/               # Static HTML, icons, manifest
+    ├── src/
+    │   ├── pages/            # All page components
+    │   ├── App.js            # Routes & layout
+    │   ├── Auth.js           # Auth context & guards
+    │   └── Login.js          # Login UI
+    └── package.json
+```
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+---
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## 🚀 Quick Start
 
-### `npm test`
+### Backend
+```bash
+cd backend
+npm install
+npx prisma db push       # Create database tables
+node seed.js             # Populate with demo data
+npm run dev              # Start server on port 5000
+```
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### Frontend
+```bash
+cd frontend
+npm install
+npm start                # Start React app on port 3000
+```
 
-### `npm run build`
+### Demo Credentials
+| Role    | Email                  | Password    |
+|---------|------------------------|-------------|
+| Admin   | admin@school.com       | admin123    |
+| Teacher | teacher@school.com     | teacher123  |
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+---
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## 🔑 Key Features
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+| Module        | Description                                        |
+|---------------|----------------------------------------------------|
+| **Auth**      | JWT-based login, role-based access (admin/user)    |
+| **Students**  | Add, edit, deactivate students; RFID tag linking   |
+| **Attendance**| RFID scan or manual entry; daily summary           |
+| **Bus**       | Board/alight logging via RFID; route tracking      |
+| **Library**   | Borrow/return books; auto fine calculation         |
+| **Payments**  | Fee creation, collection tracking, overdue alerts  |
+| **Parent Portal** | Parents view their child's records             |
 
-### `npm run eject`
+---
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+## 🛠️ Tech Stack
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+| Layer    | Technology                        |
+|----------|-----------------------------------|
+| Frontend | React 19, Bootstrap 5             |
+| Backend  | Node.js, Express 4                |
+| ORM      | Prisma 5                          |
+| Database | SQLite (dev) / MySQL (production) |
+| Auth     | JWT (jsonwebtoken) + bcryptjs     |
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+---
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+## 📜 Useful Commands
 
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+```bash
+# Backend utilities
+node check.js                        # Check all DB records
+node make-admin.js john@school.com   # Promote user to admin
+npx prisma studio                    # Visual DB browser
+npx prisma db push                   # Sync schema to DB
+```

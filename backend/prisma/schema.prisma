@@ -1,0 +1,114 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
+  role      String   @default("user") // "admin" | "user" | "parent"
+  rfidTag         String?   @unique
+  isVerified      Boolean   @default(true) // Admins are true by default, Parents will be false initially
+  registrationOtp String?
+  otpExpiry       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  student   Student?
+  sessions  Session[]
+}
+
+model Student {
+  id          Int      @id @default(autoincrement())
+  name        String
+  rollNumber  String   @unique
+  class       String
+  section     String
+  rfidTag     String?  @unique
+  parentPhone String?
+  parentEmail String?
+  photoUrl    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  userId      Int?     @unique
+  user        User?    @relation(fields: [userId], references: [id])
+
+  attendances Attendance[]
+  busLogs     BusLog[]
+  libraryLogs LibraryLog[]
+  payments    Payment[]
+}
+
+model Attendance {
+  id        Int      @id @default(autoincrement())
+  date      DateTime @default(now())
+  status    String   @default("present") // "present" | "absent" | "late"
+  checkIn   DateTime?
+  checkOut  DateTime?
+  createdAt DateTime @default(now())
+
+  studentId Int
+  student   Student  @relation(fields: [studentId], references: [id])
+}
+
+model BusLog {
+  id        Int      @id @default(autoincrement())
+  action    String   // "boarded" | "alighted"
+  timestamp DateTime @default(now())
+  busRoute  String?
+  location  String?
+
+  studentId Int
+  student   Student  @relation(fields: [studentId], references: [id])
+}
+
+model LibraryLog {
+  id         Int      @id @default(autoincrement())
+  bookTitle  String
+  bookId     String?
+  action     String   // "borrowed" | "returned"
+  borrowedAt DateTime @default(now())
+  dueDate    DateTime?
+  returnedAt DateTime?
+  fine       Float    @default(0)
+
+  studentId  Int
+  student    Student  @relation(fields: [studentId], references: [id])
+}
+
+model Payment {
+  id          Int      @id @default(autoincrement())
+  amount      Float
+  type        String   // "tuition" | "bus" | "library" | "other"
+  description String?
+  status      String   @default("pending") // "pending" | "paid" | "overdue"
+  dueDate     DateTime?
+  paidAt      DateTime?
+  createdAt   DateTime @default(now())
+
+  studentId   Int
+  student     Student  @relation(fields: [studentId], references: [id])
+}
+
+model Session {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+}
