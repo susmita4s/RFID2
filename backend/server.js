@@ -3,12 +3,31 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const { PrismaClient } = require('@prisma/client');
+const http = require('http');
+const { Server } = require('socket.io');
 
 dotenv.config();
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    credentials: true
+  }
+});
+
+app.set('io', io);
+
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 5000;
+
+io.on('connection', (socket) => {
+  console.log(`🔌 Client connected to Socket.IO: ${socket.id}`);
+  socket.on('disconnect', () => {
+    console.log(`🔌 Client disconnected: ${socket.id}`);
+  });
+});
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
 app.use(cors({
@@ -57,6 +76,10 @@ app.use('/api/library', libraryRoutes);
 const paymentRoutes = require('./routes/payments');
 app.use('/api/payments', paymentRoutes);
 
+// ─── RFID Routes ──────────────────────────────────────────────────────────────
+const rfidRoutes = require('./routes/rfid');
+app.use('/api/rfid', rfidRoutes);
+
 // ─── 404 Handler ─────────────────────────────────────────────────────────────
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
@@ -69,8 +92,9 @@ app.use((err, req, res, next) => {
 });
 
 // ─── Start Server ─────────────────────────────────────────────────────────────
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`🔌 Socket.IO initialized`);
   console.log(`📦 Environment: ${process.env.NODE_ENV}`);
 });
 

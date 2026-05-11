@@ -5,82 +5,186 @@ const { verifyToken } = require('./auth');
 const router = express.Router();
 const prisma = new PrismaClient();
 
-// ── GET /api/bus ──────────────────────────────────────────────────────────────
+// Helper to get socket.io instance
+const getIo = (req) => req.app.get('io');
+
+// ── 1. GET ALL BUSES ──────────────────────────────────────────────────────────
 router.get('/', verifyToken, async (req, res) => {
   try {
-    const { studentId, date, route } = req.query;
-
-    const where = {};
-    if (studentId) where.studentId = Number(studentId);
-    if (route)     where.busRoute  = route;
-    if (date) {
-      const d = new Date(date);
-      const nextDay = new Date(d);
-      nextDay.setDate(nextDay.getDate() + 1);
-      where.timestamp = { gte: d, lt: nextDay };
-    }
-
-    const logs = await prisma.busLog.findMany({
-      where,
-      include: { student: { select: { name: true, rollNumber: true, class: true, section: true } } },
-      orderBy: { timestamp: 'desc' },
+    const buses = await prisma.bus.findMany({
+      include: {
+        _count: {
+          select: { boardingLogs: { where: { status: 'Boarded' } } }
+        }
+      },
+      orderBy: { busNumber: 'asc' }
     });
-    res.json(logs);
+    
+    const formattedBuses = buses.map(bus => ({
+      ...bus,
+      activeStudents: bus._count.boardingLogs
+    }));
+    
+    res.json({ success: true, buses: formattedBuses });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch bus logs.' });
+    console.error('Fetch buses error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch buses' });
   }
 });
 
-// ── POST /api/bus — Log boarding/alighting via RFID ──────────────────────────
-router.post('/', verifyToken, async (req, res) => {
-  const { studentId, rfidTag, action, busRoute, location } = req.body;
-
-  if (!action || !['boarded', 'alighted'].includes(action)) {
-    return res.status(400).json({ error: 'Action must be "boarded" or "alighted".' });
-  }
-
+// ── 2. GET LIVE BOARDING ACTIVITY ─────────────────────────────────────────────
+router.get('/boarding-activity', verifyToken, async (req, res) => {
   try {
-    let resolvedStudentId = studentId;
-
-    if (!resolvedStudentId && rfidTag) {
-      const student = await prisma.student.findUnique({ where: { rfidTag } });
-      if (!student) return res.status(404).json({ error: 'No student found with this RFID tag.' });
-      resolvedStudentId = student.id;
-    }
-
-    if (!resolvedStudentId) return res.status(400).json({ error: 'studentId or rfidTag is required.' });
-
-    const log = await prisma.busLog.create({
-      data: { studentId: resolvedStudentId, action, busRoute, location },
-      include: { student: { select: { name: true, rollNumber: true } } },
+    // Only get today's logs
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const logs = await prisma.boardingLog.findMany({
+      where: { boardedAt: { gte: today } },
+      include: {
+        student: { select: { fullName: true, studentId: true, rollNumber: true, phoneNumber: true } },
+        bus: { select: { busNumber: true } }
+      },
+      orderBy: { boardedAt: 'desc' },
+      take: 50 // Limit to latest 50 for performance
     });
-
-    res.status(201).json({ message: `Student ${log.action} successfully.`, log });
+    res.json({ success: true, logs });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to log bus action.' });
+    console.error('Fetch boarding logs error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch boarding activity' });
   }
 });
 
-// ── GET /api/bus/today ────────────────────────────────────────────────────────
-router.get('/today', verifyToken, async (req, res) => {
+// ── 3. CREATE BOARDING ENTRY (MANUAL) ─────────────────────────────────────────
+router.post('/board-student', verifyToken, async (req, res) => {
+  const { studentDbId, busId, locationName } = req.body;
+  
+  if (!studentDbId || !busId || !locationName) {
+    return res.status(400).json({ success: false, error: 'Missing required fields' });
+  }
+
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const logs = await prisma.busLog.findMany({
-      where: { timestamp: { gte: today, lt: tomorrow } },
-      include: { student: { select: { name: true, rollNumber: true, class: true } } },
-      orderBy: { timestamp: 'desc' },
+    // Prevent duplicate boarding for today
+    const existingLog = await prisma.boardingLog.findFirst({
+      where: { 
+        studentId: studentDbId, 
+        busId, 
+        boardedAt: { gte: today },
+        status: 'Boarded'
+      }
     });
 
-    const boarded  = logs.filter(l => l.action === 'boarded').length;
-    const alighted = logs.filter(l => l.action === 'alighted').length;
+    if (existingLog) {
+      return res.status(400).json({ success: false, error: 'Student is already boarded on this bus today.' });
+    }
 
-    res.json({ date: today, boarded, alighted, total: logs.length, logs });
+    const log = await prisma.boardingLog.create({
+      data: {
+        studentId: studentDbId,
+        busId,
+        locationName,
+        status: 'Boarded'
+      },
+      include: {
+        student: { select: { fullName: true, studentId: true, rollNumber: true } },
+        bus: { select: { busNumber: true } }
+      }
+    });
+
+    // Emit Real-Time Socket Event
+    getIo(req).emit('newBoarding', log);
+
+    res.status(201).json({ success: true, log });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch today\'s bus logs.' });
+    console.error('Boarding error:', error);
+    res.status(500).json({ success: false, error: 'Failed to create boarding entry' });
+  }
+});
+
+// ── 4. LIVE BUS LOCATION UPDATE ───────────────────────────────────────────────
+router.patch('/location/:id', verifyToken, async (req, res) => {
+  const { currentLatitude, currentLongitude } = req.body;
+  const busId = Number(req.params.id);
+
+  try {
+    const bus = await prisma.bus.update({
+      where: { id: busId },
+      data: { currentLatitude, currentLongitude }
+    });
+
+    getIo(req).emit('busLocationUpdate', { 
+      busId: bus.id, 
+      lat: currentLatitude, 
+      lng: currentLongitude 
+    });
+
+    res.json({ success: true, bus });
+  } catch (error) {
+    console.error('Bus location update error:', error);
+    res.status(500).json({ success: false, error: 'Failed to update bus location' });
+  }
+});
+
+// ── 5. UPDATE BUS STATUS ──────────────────────────────────────────────────────
+router.patch('/status/:id', verifyToken, async (req, res) => {
+  const { status } = req.body;
+  const busId = Number(req.params.id);
+
+  try {
+    const bus = await prisma.bus.update({
+      where: { id: busId },
+      data: { status }
+    });
+
+    getIo(req).emit('busStatusUpdate', { busId: bus.id, status });
+
+    res.json({ success: true, bus });
+  } catch (error) {
+    console.error('Bus status update error:', error);
+    res.status(500).json({ success: false, error: 'Failed to update bus status' });
+  }
+});
+
+// ── 6. GET SINGLE BUS DETAILS ─────────────────────────────────────────────────
+router.get('/:id', verifyToken, async (req, res) => {
+  const busId = Number(req.params.id);
+
+  try {
+    const bus = await prisma.bus.findUnique({
+      where: { id: busId },
+      include: {
+        boardingLogs: {
+          where: { status: 'Boarded' },
+          include: { student: { select: { fullName: true, rollNumber: true, phoneNumber: true } } }
+        }
+      }
+    });
+
+    if (!bus) return res.status(404).json({ success: false, error: 'Bus not found' });
+    res.json({ success: true, bus });
+  } catch (error) {
+    console.error('Fetch single bus error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch bus details' });
+  }
+});
+
+// ── 7. DELETE BOARDING ENTRY ──────────────────────────────────────────────────
+router.delete('/boarding/:id', verifyToken, async (req, res) => {
+  const logId = Number(req.params.id);
+
+  try {
+    await prisma.boardingLog.delete({ where: { id: logId } });
+    
+    // Emit event so clients remove the log
+    getIo(req).emit('boardingDeleted', { logId });
+
+    res.json({ success: true, message: 'Boarding entry deleted' });
+  } catch (error) {
+    console.error('Delete boarding entry error:', error);
+    res.status(500).json({ success: false, error: 'Failed to delete entry' });
   }
 });
 

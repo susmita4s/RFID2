@@ -2,7 +2,7 @@
 
 import React from 'react';
 
-const Settings = () => {
+const Settings = ({ adminData = {} }) => {
   return (
     <div className="p-3 bg-light min-vh-100 animate-fade-in">
       {/* Header */}
@@ -23,16 +23,16 @@ const Settings = () => {
           >
             <div className="row g-3">
               <div className="col-md-6">
-                <SettingsInput label="Full Name" defaultValue="Vikram Singh" />
+                <SettingsInput label="Full Name" defaultValue={adminData.name || "N/A"} />
               </div>
               <div className="col-md-6">
-                <SettingsInput label="Email Address" defaultValue="admin@eduscan.edu" type="email" />
+                <SettingsInput label="Email Address" defaultValue={adminData.email || "N/A"} type="email" />
               </div>
               <div className="col-md-6">
-                <SettingsInput label="Phone Number" defaultValue="+1 555-0100" />
+                <SettingsInput label="Phone Number" defaultValue={adminData.phone || "N/A"} />
               </div>
               <div className="col-md-6">
-                <SettingsInput label="Role" defaultValue="Senior Administrator" disabled />
+                <SettingsInput label="Role" defaultValue={adminData.role || "N/A"} disabled />
               </div>
             </div>
           </SettingsCard>
@@ -119,18 +119,37 @@ const SettingsCard = ({ title, sub, icon, color, children }) => (
   </div>
 );
 
-const SettingsInput = ({ label, type = "text", defaultValue = "", disabled = false, placeholder = "" }) => (
-  <div className="mb-2">
-    <label className="form-label smaller fw-bold text-muted mb-1">{label}</label>
-    <input 
-      type={type} 
-      className={`form-control form-control-sm border-0 bg-light py-2 px-3 rounded-3 shadow-none ${disabled ? 'text-muted opacity-75' : ''}`}
-      defaultValue={defaultValue} 
-      disabled={disabled}
-      placeholder={placeholder}
-    />
-  </div>
-);
+const SettingsInput = ({ label, type = "text", defaultValue = "", disabled = false, placeholder = "" }) => {
+  const [showPassword, setShowPassword] = React.useState(false);
+  const isPassword = type === "password";
+
+  return (
+    <div className="mb-2">
+      <label className="form-label smaller fw-bold text-muted mb-1">{label}</label>
+      <div className="position-relative">
+        <input 
+          type={isPassword && showPassword ? "text" : type} 
+          className={`form-control form-control-sm border-0 bg-light py-2 px-3 rounded-3 shadow-none ${disabled ? 'text-muted opacity-75' : ''}`}
+          defaultValue={defaultValue} 
+          disabled={disabled}
+          placeholder={placeholder}
+          style={isPassword ? { paddingRight: '40px' } : {}}
+        />
+        {isPassword && (
+          <button
+            type="button"
+            className="btn btn-link position-absolute end-0 top-50 translate-middle-y text-muted text-decoration-none px-2"
+            onClick={() => setShowPassword(!showPassword)}
+            tabIndex="-1"
+            style={{ zIndex: 10, outline: 'none', boxShadow: 'none' }}
+          >
+            <i className={`bi bi-${showPassword ? 'eye-slash' : 'eye'}`}></i>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
 
 const ToggleRow = ({ title, sub, checked = false }) => (
   <div className="d-flex justify-content-between align-items-center py-3 border-bottom border-light last-child-border-0">

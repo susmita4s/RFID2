@@ -5,102 +5,287 @@ const { verifyToken } = require('./auth');
 const router = express.Router();
 const prisma = new PrismaClient();
 
+// Helper for local date
+const getLocalDateBounds = (dateString) => {
+  const date = dateString ? new Date(dateString) : new Date();
+  const startOfDay = new Date(date);
+  startOfDay.setHours(0, 0, 0, 0);
+  const endOfDay = new Date(date);
+  endOfDay.setHours(23, 59, 59, 999);
+  return { startOfDay, endOfDay };
+};
+
 // ── GET /api/attendance ───────────────────────────────────────────────────────
 router.get('/', verifyToken, async (req, res) => {
   try {
-    const { date, studentId, class: cls, section } = req.query;
+    const { date, search, class: cls } = req.query;
+    const { startOfDay, endOfDay } = getLocalDateBounds(date);
 
     const where = {};
-    if (studentId) where.studentId = Number(studentId);
-    if (date) {
-      const d = new Date(date);
-      const nextDay = new Date(d);
-      nextDay.setDate(nextDay.getDate() + 1);
-      where.date = { gte: d, lt: nextDay };
-    }
-    if (cls || section) {
-      where.student = {};
-      if (cls)     where.student.class   = cls;
-      if (section) where.student.section = section;
+    if (cls && cls !== 'All Classes') where.className = cls;
+    if (search) {
+      where.OR = [
+        { fullName: { contains: search } },
+        { studentId: { contains: search } }
+      ];
     }
 
-    const records = await prisma.attendance.findMany({
+    const students = await prisma.student.findMany({
       where,
-      include: { student: { select: { name: true, rollNumber: true, class: true, section: true } } },
-      orderBy: { date: 'desc' },
+      include: {
+        attendances: {
+          where: { date: { gte: startOfDay, lte: endOfDay } }
+        }
+      },
+      orderBy: { fullName: 'asc' }
     });
-    res.json(records);
+
+    const formattedData = students.map(student => {
+      const attendance = student.attendances[0];
+      return {
+        dbId: student.id,
+        id: student.studentId || `STU-${student.id}`,
+        name: student.fullName,
+        class: student.className,
+        checkIn: attendance?.checkIn ? new Date(attendance.checkIn).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '--:--',
+        checkOut: attendance?.checkOut ? new Date(attendance.checkOut).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '--:--',
+        status: attendance?.status || 'absent',
+        phone: student.phoneNumber || 'N/A',
+        rfidEnabled: attendance ? attendance.rfidEnabled : false,
+        attendanceId: attendance?.id || null
+      };
+    });
+
+    res.json({ success: true, data: formattedData });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch attendance.' });
+    console.error('Fetch attendance error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch attendance.' });
   }
 });
 
-// ── POST /api/attendance — Mark attendance (RFID scan or manual) ───────────────
-router.post('/', verifyToken, async (req, res) => {
-  const { studentId, rfidTag, status, checkIn, date } = req.body;
-
+// ── GET /api/attendance/stats ─────────────────────────────────────────────────
+router.get('/stats', verifyToken, async (req, res) => {
   try {
-    let resolvedStudentId = studentId;
+    const { date } = req.query;
+    const { startOfDay, endOfDay } = getLocalDateBounds(date);
 
-    // Lookup by RFID if studentId not provided
-    if (!resolvedStudentId && rfidTag) {
-      const student = await prisma.student.findUnique({ where: { rfidTag } });
-      if (!student) return res.status(404).json({ error: 'No student found with this RFID tag.' });
-      resolvedStudentId = student.id;
-    }
-
-    if (!resolvedStudentId) return res.status(400).json({ error: 'studentId or rfidTag is required.' });
-
-    const attendanceDate = date ? new Date(date) : new Date();
-    const startOfDay = new Date(attendanceDate.setHours(0, 0, 0, 0));
-    const endOfDay   = new Date(attendanceDate.setHours(23, 59, 59, 999));
-
-    // Upsert — update if already exists for today
-    const existing = await prisma.attendance.findFirst({
-      where: { studentId: resolvedStudentId, date: { gte: startOfDay, lte: endOfDay } },
+    const attendances = await prisma.attendance.findMany({
+      where: { date: { gte: startOfDay, lte: endOfDay } }
     });
 
-    let record;
-    if (existing) {
-      record = await prisma.attendance.update({
-        where: { id: existing.id },
-        data:  { status: status || existing.status, checkOut: new Date() },
+    let present = 0;
+    let late = 0;
+    let halfDay = 0;
+    let activeTags = 0;
+
+    attendances.forEach(a => {
+      if (a.status === 'present') present++;
+      if (a.status === 'late') late++;
+      if (a.status === 'half-day') halfDay++;
+      if (a.rfidEnabled) activeTags++;
+    });
+
+    // Absent is total students minus present/late/half-day
+    const totalStudents = await prisma.student.count({ where: { isActive: true } });
+    const absent = totalStudents - present - late - halfDay;
+
+    res.json({ success: true, stats: { present, absent, late, activeTags } });
+  } catch (error) {
+    console.error('Stats error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch stats.' });
+  }
+});
+
+// ── POST /api/attendance/check-in ─────────────────────────────────────────────
+router.post('/check-in', verifyToken, async (req, res) => {
+  const { studentDbId, date, time } = req.body;
+  if (!studentDbId) return res.status(400).json({ success: false, error: 'Student ID required.' });
+
+  try {
+    const targetDate = date ? new Date(date) : new Date();
+    const checkInTime = time ? new Date(`${date}T${time}`) : new Date();
+    const { startOfDay, endOfDay } = getLocalDateBounds(date);
+
+    // Calculate Status (Late if after 9:00 AM)
+    const lateThreshold = new Date(targetDate);
+    lateThreshold.setHours(9, 0, 0, 0);
+    const status = checkInTime > lateThreshold ? 'late' : 'present';
+
+    let attendance = await prisma.attendance.findFirst({
+      where: { studentId: studentDbId, date: { gte: startOfDay, lte: endOfDay } }
+    });
+
+    if (attendance) {
+      attendance = await prisma.attendance.update({
+        where: { id: attendance.id },
+        data: { checkIn: checkInTime, status }
       });
     } else {
-      record = await prisma.attendance.create({
+      attendance = await prisma.attendance.create({
         data: {
-          studentId: resolvedStudentId,
-          status:    status || 'present',
-          checkIn:   checkIn ? new Date(checkIn) : new Date(),
-          date:      new Date(),
-        },
+          studentId: studentDbId,
+          date: targetDate,
+          checkIn: checkInTime,
+          status,
+          adminId: req.user.role === 'admin' ? req.user.id : null
+        }
       });
     }
 
-    res.status(201).json(record);
+    await prisma.attendanceActivity.create({
+      data: {
+        attendanceId: attendance.id,
+        action: 'CHECK_IN',
+        description: `Checked in at ${checkInTime.toLocaleTimeString()}`
+      }
+    });
+
+    res.json({ success: true, attendance });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to mark attendance.' });
+    console.error('Check-in error:', error);
+    res.status(500).json({ success: false, error: 'Failed to check in.' });
   }
 });
 
-// ── GET /api/attendance/summary ───────────────────────────────────────────────
-router.get('/summary', verifyToken, async (req, res) => {
+// ── POST /api/attendance/check-out ────────────────────────────────────────────
+router.post('/check-out', verifyToken, async (req, res) => {
+  const { studentDbId, date, time } = req.body;
+  if (!studentDbId) return res.status(400).json({ success: false, error: 'Student ID required.' });
+
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    const { startOfDay, endOfDay } = getLocalDateBounds(date);
+    const checkOutTime = time ? new Date(`${date}T${time}`) : new Date();
 
-    const [present, absent, late, total] = await Promise.all([
-      prisma.attendance.count({ where: { date: { gte: today, lt: tomorrow }, status: 'present' } }),
-      prisma.attendance.count({ where: { date: { gte: today, lt: tomorrow }, status: 'absent'  } }),
-      prisma.attendance.count({ where: { date: { gte: today, lt: tomorrow }, status: 'late'    } }),
-      prisma.student.count({ where: { isActive: true } }),
-    ]);
+    let attendance = await prisma.attendance.findFirst({
+      where: { studentId: studentDbId, date: { gte: startOfDay, lte: endOfDay } }
+    });
 
-    res.json({ date: today, total, present, absent, late, unmarked: total - present - absent - late });
+    if (!attendance) {
+      return res.status(404).json({ success: false, error: 'No check-in found for this date.' });
+    }
+
+    // Half day if checkout before 2:00 PM
+    const halfDayThreshold = new Date(attendance.date);
+    halfDayThreshold.setHours(14, 0, 0, 0);
+    const status = checkOutTime < halfDayThreshold ? 'half-day' : attendance.status;
+
+    attendance = await prisma.attendance.update({
+      where: { id: attendance.id },
+      data: { checkOut: checkOutTime, status }
+    });
+
+    await prisma.attendanceActivity.create({
+      data: {
+        attendanceId: attendance.id,
+        action: 'CHECK_OUT',
+        description: `Checked out at ${checkOutTime.toLocaleTimeString()}`
+      }
+    });
+
+    res.json({ success: true, attendance });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch attendance summary.' });
+    console.error('Check-out error:', error);
+    res.status(500).json({ success: false, error: 'Failed to check out.' });
+  }
+});
+
+// ── POST /api/attendance/mark-absent ──────────────────────────────────────────
+router.post('/mark-absent', verifyToken, async (req, res) => {
+  const { studentDbId, date } = req.body;
+  if (!studentDbId) return res.status(400).json({ success: false, error: 'Student ID required.' });
+
+  try {
+    const targetDate = date ? new Date(date) : new Date();
+    const { startOfDay, endOfDay } = getLocalDateBounds(date);
+
+    let attendance = await prisma.attendance.findFirst({
+      where: { studentId: studentDbId, date: { gte: startOfDay, lte: endOfDay } }
+    });
+
+    if (attendance) {
+      attendance = await prisma.attendance.update({
+        where: { id: attendance.id },
+        data: { checkIn: null, checkOut: null, status: 'absent' }
+      });
+    } else {
+      attendance = await prisma.attendance.create({
+        data: {
+          studentId: studentDbId,
+          date: targetDate,
+          status: 'absent',
+          adminId: req.user.role === 'admin' ? req.user.id : null
+        }
+      });
+    }
+
+    await prisma.attendanceActivity.create({
+      data: {
+        attendanceId: attendance.id,
+        action: 'MARK_ABSENT',
+        description: `Manually marked absent`
+      }
+    });
+
+    res.json({ success: true, attendance });
+  } catch (error) {
+    console.error('Mark absent error:', error);
+    res.status(500).json({ success: false, error: 'Failed to mark absent.' });
+  }
+});
+
+// ── PATCH /api/attendance/rfid-toggle/:studentDbId ────────────────────────────
+router.patch('/rfid-toggle/:studentDbId', verifyToken, async (req, res) => {
+  const { date, enabled } = req.body;
+  const studentDbId = Number(req.params.studentDbId);
+  const targetDate = date ? new Date(date) : new Date();
+  const { startOfDay, endOfDay } = getLocalDateBounds(date);
+
+  try {
+    let attendance = await prisma.attendance.findFirst({
+      where: { studentId: studentDbId, date: { gte: startOfDay, lte: endOfDay } }
+    });
+
+    if (attendance) {
+      attendance = await prisma.attendance.update({
+        where: { id: attendance.id },
+        data: { rfidEnabled: enabled }
+      });
+    } else {
+      attendance = await prisma.attendance.create({
+        data: {
+          studentId: studentDbId,
+          date: targetDate,
+          rfidEnabled: enabled,
+          status: 'absent',
+          adminId: req.user.role === 'admin' ? req.user.id : null
+        }
+      });
+    }
+
+    await prisma.attendanceActivity.create({
+      data: {
+        attendanceId: attendance.id,
+        action: 'RFID_TOGGLE',
+        description: `RFID tracking ${enabled ? 'enabled' : 'disabled'}`
+      }
+    });
+
+    res.json({ success: true, attendance });
+  } catch (error) {
+    console.error('RFID Toggle error:', error);
+    res.status(500).json({ success: false, error: 'Failed to toggle RFID.' });
+  }
+});
+
+// ── DELETE /api/attendance/:id ────────────────────────────────────────────────
+router.delete('/:id', verifyToken, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    await prisma.attendance.delete({ where: { id } });
+    res.json({ success: true, message: 'Attendance record deleted.' });
+  } catch (error) {
+    console.error('Delete error:', error);
+    res.status(500).json({ success: false, error: 'Failed to delete entry.' });
   }
 });
 

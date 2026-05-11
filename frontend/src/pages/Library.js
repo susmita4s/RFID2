@@ -12,7 +12,7 @@ const Library = () => {
   const [scanType, setScanType] = useState(""); 
   const [issueDetails, setIssueDetails] = useState({
     studentId: '', bookId: '', studentClass: '10-A',
-    issueDate: new Date().toISOString().split('T')[0], librarianName: ''
+    issueDate: new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0], librarianName: ''
   });
   const [booksData, setBooksData] = useState([
     { id: "BK-PHY-101", title: "Physics for Class 10", student: "Arjun Sharma", stuId: "STU-2024-001", issuedDate: "2024-01-10", dueDate: "2024-01-24", status: "issued" },
@@ -37,7 +37,7 @@ const Library = () => {
     const newIssue = {
       id: issueDetails.bookId, title: "New Issued Book", student: "Recognized Student", 
       stuId: issueDetails.studentId, issuedDate: issueDetails.issueDate,
-      dueDate: new Date(new Date(issueDetails.issueDate).getTime() + 12096e5).toISOString().split('T')[0], 
+      dueDate: new Date(new Date(issueDetails.issueDate).getTime() + 12096e5 - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0], 
       status: "issued"
     };
     setBooksData([newIssue, ...booksData]);

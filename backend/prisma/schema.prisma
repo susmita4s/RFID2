@@ -12,67 +12,131 @@ datasource db {
 
 model User {
   id        Int      @id @default(autoincrement())
-  name      String
+  firstName String?
+  lastName  String?
   email     String   @unique
   password  String
+  phone     String?
   role      String   @default("user") // "admin" | "user" | "parent"
   rfidTag         String?   @unique
   isVerified      Boolean   @default(true) // Admins are true by default, Parents will be false initially
   registrationOtp String?
   otpExpiry       DateTime?
+  resetPasswordOtp String?
+  resetPasswordExpiry DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
   // Relations
-  student   Student?
-  sessions  Session[]
+  student       Student?  @relation("ParentStudent")
+  adminStudents    Student[]    @relation("AdminStudents")
+  adminAttendances Attendance[] @relation("AdminAttendances")
+  adminBuses       Bus[]        @relation("AdminBuses")
+  sessions         Session[]
+  
+  schoolId  Int?      @unique
+  school    School?   @relation(fields: [schoolId], references: [id])
+}
+
+model School {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  admin     User?
 }
 
 model Student {
-  id          Int      @id @default(autoincrement())
-  name        String
-  rollNumber  String   @unique
-  class       String
-  section     String
-  rfidTag     String?  @unique
-  parentPhone String?
-  parentEmail String?
-  photoUrl    String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              Int      @id @default(autoincrement())
+  studentId       String?  @unique
+  fullName        String   @map("name")
+  rollNumber      String   @unique
+  className       String   @map("class")
+  section         String?
+  gender          String?
+  guardianName    String?
+  email           String?  @unique @map("parentEmail")
+  phoneNumber     String?  @map("parentPhone")
+  rfidTag         String?  @unique
+  profileImage    String?  @map("photoUrl")
+  isActive        Boolean  @default(true)
+  status          String   @default("active")
+  joinedDate      DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   // Relations
-  userId      Int?     @unique
-  user        User?    @relation(fields: [userId], references: [id])
+  adminId         Int?
+  admin           User?    @relation("AdminStudents", fields: [adminId], references: [id])
 
-  attendances Attendance[]
-  busLogs     BusLog[]
-  libraryLogs LibraryLog[]
-  payments    Payment[]
+  userId          Int?     @unique
+  user            User?    @relation("ParentStudent", fields: [userId], references: [id])
+
+  attendances     Attendance[]
+  boardingLogs    BoardingLog[]
+  libraryLogs     LibraryLog[]
+  payments        Payment[]
+  activities      StudentActivity[]
 }
 
 model Attendance {
-  id        Int      @id @default(autoincrement())
-  date      DateTime @default(now())
-  status    String   @default("present") // "present" | "absent" | "late"
-  checkIn   DateTime?
-  checkOut  DateTime?
-  createdAt DateTime @default(now())
+  id          Int      @id @default(autoincrement())
+  date        DateTime @default(now())
+  status      String   @default("present") // "present" | "absent" | "late" | "half-day"
+  checkIn     DateTime?
+  checkOut    DateTime?
+  rfidEnabled Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
 
-  studentId Int
-  student   Student  @relation(fields: [studentId], references: [id])
+  studentId   Int
+  student     Student  @relation(fields: [studentId], references: [id])
+
+  adminId     Int?
+  admin       User?    @relation("AdminAttendances", fields: [adminId], references: [id])
+
+  activities  AttendanceActivity[]
 }
 
-model BusLog {
-  id        Int      @id @default(autoincrement())
-  action    String   // "boarded" | "alighted"
-  timestamp DateTime @default(now())
-  busRoute  String?
-  location  String?
+model AttendanceActivity {
+  id           Int      @id @default(autoincrement())
+  attendanceId Int
+  action       String
+  description  String
+  createdAt    DateTime @default(now())
 
-  studentId Int
-  student   Student  @relation(fields: [studentId], references: [id])
+  attendance   Attendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+}
+
+model Bus {
+  id               Int           @id @default(autoincrement())
+  busNumber        String        @unique
+  driverName       String
+  routeName        String
+  currentLatitude  Float?
+  currentLongitude Float?
+  status           String        @default("On Route") // "On Route" | "Arrived" | "Delayed" | "Maintenance" | "Offline"
+  
+  adminId          Int
+  admin            User          @relation("AdminBuses", fields: [adminId], references: [id])
+  
+  boardingLogs     BoardingLog[]
+  
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @default(now()) @updatedAt
+}
+
+model BoardingLog {
+  id           Int      @id @default(autoincrement())
+  boardedAt    DateTime @default(now())
+  locationName String
+  status       String   @default("Boarded")
+
+  studentId    Int
+  student      Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  busId        Int
+  bus          Bus      @relation(fields: [busId], references: [id], onDelete: Cascade)
+
+  createdAt    DateTime @default(now())
 }
 
 model LibraryLog {
@@ -111,4 +175,14 @@ model Session {
 
   userId    Int
   user      User     @relation(fields: [userId], references: [id])
+}
+
+model StudentActivity {
+  id          Int      @id @default(autoincrement())
+  studentId   Int
+  action      String
+  description String
+  createdAt   DateTime @default(now())
+
+  student     Student @relation(fields: [studentId], references: [id])
 }

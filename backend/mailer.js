@@ -60,4 +60,54 @@ const sendOTP = async (email, otp) => {
   }
 };
 
-module.exports = { sendOTP, transporter };
+/**
+ * Send Password Reset OTP via email
+ * @param {string} email - Recipient email
+ * @param {string} otp - 6-digit OTP
+ */
+const sendResetPasswordOTP = async (email, otp) => {
+  const isDevMode = !process.env.EMAIL_USER || !process.env.EMAIL_PASS;
+
+  if (isDevMode) {
+    console.log('\n======================================');
+    console.log('⚠️  DEV MODE: Email not configured.');
+    console.log(`📩 Simulated Password Reset Email to: ${email}`);
+    console.log(`🔑 Your Reset OTP is: ${otp}`);
+    console.log('======================================\n');
+    return { success: true, message: 'OTP logged to console (DEV MODE)' };
+  }
+
+  try {
+    const mailOptions = {
+      from: `"RFID CRM System" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: 'Password Reset OTP - EduScan',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+          <h2 style="color: #0dcaf0; text-align: center;">EduScan Password Reset</h2>
+          <p>Hello,</p>
+          <p>We received a request to reset your password for your EduScan account.</p>
+          <p>Your one-time password (OTP) for password reset is:</p>
+          <div style="text-align: center; margin: 20px 0;">
+            <span style="display: inline-block; padding: 15px 30px; font-size: 24px; font-weight: bold; background-color: #f8f9fa; border-radius: 5px; letter-spacing: 5px;">
+              ${otp}
+            </span>
+          </div>
+          <p>This OTP is valid for <strong>10 minutes</strong>. Do not share this code with anyone.</p>
+          <p>If you did not request a password reset, please ignore this email or contact support if you have concerns.</p>
+          <br>
+          <p>Best regards,<br><strong>EduScan Team</strong></p>
+        </div>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`✅ Password Reset OTP sent to ${email}`);
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Error sending password reset OTP email:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+module.exports = { sendOTP, sendResetPasswordOTP, transporter };

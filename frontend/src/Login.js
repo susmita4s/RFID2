@@ -4,10 +4,11 @@
 import React, { useState } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './Login.css';
-import { ShieldLock, Wifi, Grid, Person } from 'react-bootstrap-icons';
+import { ShieldLock, Wifi, Grid, Person, Eye, EyeSlash } from 'react-bootstrap-icons';
 
-const Login = ({ onLogin }) => {
+const Login = ({ onLogin, setPage }) => {
     const [role, setRole] = useState('administrator');
+    const [showPassword, setShowPassword] = useState(false);
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -95,9 +96,32 @@ const Login = ({ onLogin }) => {
                                 <div className="mb-4">
                                     <div className="d-flex justify-content-between">
                                         <label className="form-label text-white small">Password</label>
-                                        <a href="#" className="text-cyan text-decoration-none small">Forgot Password?</a>
+                                        <span 
+                                            onClick={() => setPage && setPage('forgot-password')}
+                                            className="text-cyan text-decoration-none small"
+                                            style={{ cursor: 'pointer' }}
+                                        >
+                                            Forgot Password?
+                                        </span>
                                     </div>
-                                    <input type="password" className="form-control custom-input" placeholder="Enter your password" required />
+                                    <div className="position-relative">
+                                        <input 
+                                            type={showPassword ? "text" : "password"} 
+                                            className="form-control custom-input" 
+                                            placeholder="Enter your password" 
+                                            required 
+                                            style={{ paddingRight: '40px' }}
+                                        />
+                                        <button
+                                            type="button"
+                                            className="btn btn-link text-white position-absolute end-0 top-50 translate-middle-y text-decoration-none px-3"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            tabIndex="-1"
+                                            style={{ zIndex: 10, outline: 'none', boxShadow: 'none' }}
+                                        >
+                                            {showPassword ? <EyeSlash size={20} /> : <Eye size={20} />}
+                                        </button>
+                                    </div>
                                 </div>
                                 <button type="submit" className="btn btn-cyan w-100 fw-bold py-2 mb-4">
                                     Sign in as {role.charAt(0).toUpperCase() + role.slice(1)}

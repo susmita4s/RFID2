@@ -2,14 +2,15 @@ import React, { useState, useEffect } from "react";
 import { Eye, EyeSlash } from "react-bootstrap-icons";
 import "../Login.css"; // ✅ use same CSS as login
 
-const Register = ({ setPage }) => {
-  const [formData, setFormData] = useState({
+const Register = ({ setPage, role = "parent", onLogin }) => {
+  const [form, setForm] = useState({
     firstName: "",
     lastName: "",
     phone: "",
     email: "",
     password: "",
     confirmPassword: "",
+    schoolName: "",
   });
 
   const [showPassword, setShowPassword] = useState(false);
@@ -33,23 +34,30 @@ const Register = ({ setPage }) => {
     return () => clearInterval(timer);
   }, [cooldown]);
 
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-  };
-
-  const handleSubmit = async (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
-    setError("");
-    setSuccess("");
+    console.log("FORM DATA:", form);
+    
+    const { firstName, lastName, email, phone, password, confirmPassword, schoolName } = form;
 
-    if (formData.password !== formData.confirmPassword) {
+    // Frontend validation
+    if (!firstName || !lastName || !email || !password || !confirmPassword || (role === "administrator" && !schoolName)) {
+      setError("All required fields must be filled");
+      return;
+    }
+
+    if (password !== confirmPassword) {
       setError("Passwords do not match");
       return;
     }
 
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters long");
+      return;
+    }
+
+    setError("");
+    setSuccess("");
     setLoading(true);
 
     try {
@@ -57,25 +65,37 @@ const Register = ({ setPage }) => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: `${formData.firstName} ${formData.lastName}`.trim(),
-          email: formData.email,
-          phone: formData.phone,
-          password: formData.password,
-          role: "parent", // Hardcode role as parent for this form
+          firstName,
+          lastName,
+          email,
+          phone,
+          password,
+          confirmPassword,
+          role: role === "administrator" ? "admin" : "parent",
+          schoolName: role === "administrator" ? schoolName : undefined,
         }),
       });
 
       const data = await response.json();
 
-      if (!response.ok) {
-        setError(data.error || "Registration failed");
+      if (!response.ok || data.success === false) {
+        setError(data.message || data.error || "Registration failed");
       } else if (data.requireOtp) {
         setShowOtpModal(true);
         setCooldown(60); // start 60s cooldown
         setSuccess(data.message);
       } else {
-        // Admin or fallback
-        setSuccess("Registered Successfully!");
+        setSuccess(data.message || "Registered Successfully!");
+        // Clear form fields
+        setForm({
+          firstName: "",
+          lastName: "",
+          phone: "",
+          email: "",
+          password: "",
+          confirmPassword: "",
+          schoolName: "",
+        });
         setTimeout(() => setPage("login"), 2000);
       }
     } catch (err) {
@@ -97,8 +117,9 @@ const Register = ({ setPage }) => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: formData.email,
+          email: form.email,
           otp,
+          schoolName: role === "administrator" ? form.schoolName : undefined,
         }),
       });
 
@@ -109,7 +130,16 @@ const Register = ({ setPage }) => {
       } else {
         setSuccess("Account Activated Successfully!");
         setShowOtpModal(false);
-        setTimeout(() => setPage("login"), 2000);
+        
+        if (data.token && data.user) {
+          localStorage.setItem('token', data.token);
+          localStorage.setItem('user', JSON.stringify(data.user));
+          setTimeout(() => {
+            if (onLogin) onLogin(data.user.role);
+          }, 2000);
+        } else {
+          setTimeout(() => setPage("login"), 2000);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -130,7 +160,7 @@ const Register = ({ setPage }) => {
       const response = await fetch("http://localhost:5000/api/auth/resend-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: formData.email }),
+        body: JSON.stringify({ email: form.email }),
       });
 
       const data = await response.json();
@@ -161,7 +191,7 @@ const Register = ({ setPage }) => {
           <div className="bg-white p-4 rounded-4 shadow-lg text-center" style={{ width: "90%", maxWidth: "400px" }}>
             <h3 className="fw-bold mb-3">Verify Your Email</h3>
             <p className="text-muted small mb-4">
-              We've sent a 6-digit OTP to <strong>{formData.email}</strong>.<br/>
+              We've sent a 6-digit OTP to <strong>{form.email}</strong>.<br/>
               This code will expire in 10 minutes.
             </p>
             
@@ -204,48 +234,64 @@ const Register = ({ setPage }) => {
 
       <div className="login-card w-100" style={{ maxWidth: "450px" }}>
         <div className="text-center mb-4">
-          <h2 className="text-white fw-bold">Parent Registration</h2>
-          <p className="text-light-muted">Create an account to monitor your child</p>
+          <h2 className="text-white fw-bold">
+            {role === "administrator" ? "Administrator" : "Parent"} Registration
+          </h2>
+          <p className="text-light-muted">
+            {role === "administrator" 
+              ? "Create an administrator account to manage the system" 
+              : "Create an account to monitor your child"}
+          </p>
         </div>
 
         <div className="form-container p-4">
           {error && <div className="alert alert-danger small py-2">{error}</div>}
           {success && !showOtpModal && <div className="alert alert-success small py-2">{success}</div>}
 
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleRegister}>
             <div className="row g-2 mb-3">
               <div className="col-6">
                 <input
                   type="text"
-                  name="firstName"
                   required
                   placeholder="First Name"
-                  value={formData.firstName}
-                  onChange={handleChange}
+                  value={form.firstName}
+                  onChange={(e) => setForm({ ...form, firstName: e.target.value })}
                   className="form-control custom-input"
                 />
               </div>
               <div className="col-6">
                 <input
                   type="text"
-                  name="lastName"
                   required
                   placeholder="Last Name"
-                  value={formData.lastName}
-                  onChange={handleChange}
+                  value={form.lastName}
+                  onChange={(e) => setForm({ ...form, lastName: e.target.value })}
                   className="form-control custom-input"
                 />
               </div>
             </div>
 
+            {role === "administrator" && (
+              <div className="mb-3">
+                <input
+                  type="text"
+                  required
+                  placeholder="School Name"
+                  value={form.schoolName}
+                  onChange={(e) => setForm({ ...form, schoolName: e.target.value })}
+                  className="form-control custom-input"
+                />
+              </div>
+            )}
+
             <div className="mb-3">
               <input
                 type="email"
-                name="email"
                 required
                 placeholder="Email Address"
-                value={formData.email}
-                onChange={handleChange}
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
                 className="form-control custom-input"
               />
             </div>
@@ -253,11 +299,10 @@ const Register = ({ setPage }) => {
             <div className="mb-3">
               <input
                 type="tel"
-                name="phone"
                 required
                 placeholder="Phone Number"
-                value={formData.phone}
-                onChange={handleChange}
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
                 className="form-control custom-input"
               />
             </div>
@@ -265,11 +310,10 @@ const Register = ({ setPage }) => {
             <div className="mb-3 position-relative">
               <input
                 type={showPassword ? "text" : "password"}
-                name="password"
                 required
                 placeholder="Password"
-                value={formData.password}
-                onChange={handleChange}
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
                 className="form-control custom-input pe-5"
               />
               <button
@@ -285,11 +329,10 @@ const Register = ({ setPage }) => {
             <div className="mb-4 position-relative">
               <input
                 type={showConfirmPassword ? "text" : "password"}
-                name="confirmPassword"
                 required
                 placeholder="Confirm Password"
-                value={formData.confirmPassword}
-                onChange={handleChange}
+                value={form.confirmPassword}
+                onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
                 className="form-control custom-input pe-5"
               />
               <button

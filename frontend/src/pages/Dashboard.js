@@ -81,17 +81,44 @@ const dashStyles = `
 const Dashboard = ({ onLogout }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0]);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [showAdminMenu, setShowAdminMenu] = useState(false);
+  const [adminData, setAdminData] = useState({
+    name: "Loading...",
+    role: "Administrator",
+    id: "...",
+    email: "loading@schoolhub.edu",
+    lastLogin: "...",
+    schoolName: "EduScan School"
+  });
 
-  const adminData = {
-    name: "Vikram Singh",
-    role: "Senior Administrator",
-    id: "EMP-9921",
-    email: "vikram.admin@schoolhub.edu",
-    lastLogin: "Today, 08:30 AM"
-  };
+  React.useEffect(() => {
+    const fetchUser = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      try {
+        const response = await fetch('http://localhost:5000/api/auth/me', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (response.ok) {
+          const user = await response.json();
+          setAdminData({
+            name: user.firstName ? `${user.firstName} ${user.lastName}` : (user.fullName || user.name || "Loading..."),
+            role: user.role === 'admin' ? "Administrator" : "Parent",
+            id: user.id || "N/A",
+            email: user.email || "N/A",
+            phone: user.phone || "N/A",
+            lastLogin: new Date(user.createdAt).toLocaleDateString() || "Unknown",
+            schoolName: user.schoolName || user.school?.name || "EduScan School"
+          });
+        }
+      } catch (err) {
+        console.error("Error fetching admin data:", err);
+      }
+    };
+    fetchUser();
+  }, []);
 
   const renderContent = () => {
     const PageHeader = ({ title }) => (
@@ -106,7 +133,7 @@ const Dashboard = ({ onLogout }) => {
       case 'bus-boarding': return <><PageHeader title="Bus Boarding System" /><BusBoarding date={selectedDate} /></>;
       case 'library': return <><PageHeader title="Library Logs" /><Library date={selectedDate} /></>; 
       case 'payments': return <><PageHeader title="Fee Collection" /><Payments date={selectedDate} /></>;
-      case 'settings': return <Settings />;
+      case 'settings': return <Settings adminData={adminData} />;
       default: return (
         <div className="animate-fade-in">
           <div className="d-flex justify-content-between align-items-end mb-4">
@@ -169,7 +196,7 @@ const Dashboard = ({ onLogout }) => {
         
         <div className="fw-bold mb-5 d-flex align-items-center gap-2 fs-5 overflow-hidden">
           <i className="bi bi-broadcast text-info flex-shrink-0"></i> 
-          {!isCollapsed && <span className="white-space-nowrap">RFID SchoolHub</span>}
+          {!isCollapsed && <span className="white-space-nowrap">{adminData.schoolName || 'RFID SchoolHub'}</span>}
         </div>
 
         <nav className="flex-grow-1">
@@ -217,13 +244,17 @@ const Dashboard = ({ onLogout }) => {
                 <div className="fw-bold small">{adminData.name}</div>
                 <div className="text-muted" style={{fontSize: '10px'}}>{adminData.role}</div>
               </div>
-              <img src="https://ui-avatars.com/api/?name=Vikram+Singh&background=00d9cc&color=fff" className="rounded-circle border" style={{width: 40, height: 40}} alt="Admin Avatar" />
+              <div className="d-flex justify-content-center align-items-center rounded-circle bg-cyan text-white fw-bold border" style={{width: 40, height: 40, backgroundColor: '#00d9cc'}}>
+                {adminData.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+              </div>
             </div>
 
             {showAdminMenu && (
               <div className="admin-dropdown animate-fade-in" onClick={(e) => e.stopPropagation()}>
                 <div className="text-center mb-3">
-                    <img src="https://ui-avatars.com/api/?name=Vikram+Singh&background=00d9cc&color=fff" className="rounded-circle mb-2" style={{width: 60, height: 60}} alt="Admin Profile" />
+                    <div className="d-flex justify-content-center align-items-center rounded-circle bg-cyan text-white mb-2 mx-auto fw-bold fs-3" style={{width: 60, height: 60, backgroundColor: '#00d9cc'}}>
+                      {adminData.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+                    </div>
                     <h6 className="fw-bold m-0">{adminData.name}</h6>
                     <small className="text-muted">{adminData.email}</small>
                 </div>

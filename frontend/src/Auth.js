@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './Login.css';
-import { ShieldLock, Wifi, Grid, Person, XCircleFill } from 'react-bootstrap-icons';
+import { ShieldLock, Wifi, Grid, Person, XCircleFill, Eye, EyeSlash } from 'react-bootstrap-icons';
 
-const Auth = ({ onLogin, setPage }) => {
+const Auth = ({ onLogin, setPage, setRegisterRole }) => {
     const [role, setRole] = useState('administrator');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
     
     // State for the Feature Popup
     const [activeFeature, setActiveFeature] = useState(null);
@@ -56,11 +57,12 @@ const Auth = ({ onLogin, setPage }) => {
             } else {
                 // Success
                 localStorage.setItem('token', data.token);
-                localStorage.setItem('user', JSON.stringify(data.user));
+                const userData = data.admin || data.user;
+                localStorage.setItem('user', JSON.stringify(userData));
                 
                 // For compatibility with App.js onLogin logic
                 if (onLogin) {
-                    onLogin(data.user.role === 'admin' ? 'administrator' : 'parent');
+                    onLogin(userData.role === 'admin' ? 'administrator' : 'parent');
                 }
             }
         } catch (err) {
@@ -183,16 +185,34 @@ const Auth = ({ onLogin, setPage }) => {
                                 <div className="mb-4">
                                     <div className="d-flex justify-content-between">
                                         <label className="form-label text-white small"></label>
-                                        <a href="#/" className="text-cyan text-decoration-none small">Forgot Password?</a>
+                                        <span 
+                                            onClick={() => setPage('forgot-password')}
+                                            className="text-cyan text-decoration-none small"
+                                            style={{ cursor: 'pointer' }}
+                                        >
+                                            Forgot Password?
+                                        </span>
                                     </div>
-                                    <input 
-                                        type="password" 
-                                        className="form-control custom-input" 
-                                        placeholder="Enter your password" 
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        required 
-                                    />
+                                    <div className="position-relative">
+                                        <input 
+                                            type={showPassword ? "text" : "password"} 
+                                            className="form-control custom-input" 
+                                            placeholder="Enter your password" 
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                            required 
+                                            style={{ paddingRight: '40px' }}
+                                        />
+                                        <button
+                                            type="button"
+                                            className="btn btn-link text-white position-absolute end-0 top-50 translate-middle-y text-decoration-none px-3"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            tabIndex="-1"
+                                            style={{ zIndex: 10, outline: 'none', boxShadow: 'none' }}
+                                        >
+                                            {showPassword ? <EyeSlash size={20} /> : <Eye size={20} />}
+                                        </button>
+                                    </div>
                                 </div>
                                 <button 
                                     type="submit" 
@@ -205,7 +225,10 @@ const Auth = ({ onLogin, setPage }) => {
                             <div className="text-center">
                                 <p className="text-light-muted small">Don't have an account?{" "}
                                     <span
-                                        onClick={() => setPage('register')}
+                                        onClick={() => {
+                                            if (setRegisterRole) setRegisterRole(role);
+                                            setPage('register');
+                                        }}
                                         className="text-cyan text-decoration-none"
                                         style={{ cursor: "pointer" }}
                                     >

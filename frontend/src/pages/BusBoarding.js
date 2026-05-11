@@ -1,256 +1,287 @@
+import React, { useState, useEffect, createContext, useContext, useReducer, useMemo } from 'react';
+import { io } from 'socket.io-client';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
 
-
-
-
-import React, { useState, useEffect } from 'react';
-
+// --- Styles ---
 const busStyles = `
   .bus-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 24px; }
   .route-card { 
-    background: white; 
-    border-radius: 20px; 
-    padding: 16px; 
-    border: 1px solid #f1f5f9; 
-    margin-bottom: 12px;
-    cursor: pointer;
-    transition: 0.2s;
+    background: white; border-radius: 20px; padding: 16px; border: 1px solid #f1f5f9; 
+    margin-bottom: 12px; cursor: pointer; transition: 0.2s;
   }
-  .route-card:hover { transform: translateX(5px); border-color: var(--accent-cyan); }
-  
-  .map-container {
-    height: 400px;
-    background: #f1f5f9;
-    border-radius: 24px;
-    position: relative;
-    overflow: hidden;
-    border: 1px solid #e2e8f0;
-  }
-
-  /* Animated Bus Markers */
-  .gps-marker {
-    position: absolute;
-    z-index: 10;
-    transition: all 2.5s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .marker-icon {
-    width: 14px;
-    height: 14px;
-    background: #ef4444;
-    border-radius: 50%;
-    border: 2px solid white;
-    box-shadow: 0 0 15px rgba(239, 68, 68, 0.6);
-  }
-
-  .pulse-ring {
-    position: absolute;
-    width: 40px;
-    height: 40px;
-    border: 2px solid rgba(239, 68, 68, 0.4);
-    border-radius: 50%;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    animation: gps-pulse 2s infinite;
-  }
-
-  @keyframes gps-pulse {
-    0% { transform: translate(-50%, -50%) scale(0.5); opacity: 1; }
-    100% { transform: translate(-50%, -50%) scale(2); opacity: 0; }
-  }
-
-  /* Student Detail Modal Styles */
-  .student-modal-overlay {
-    position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(15, 23, 42, 0.6);
-    backdrop-filter: blur(4px);
-    display: flex; align-items: center; justify-content: center;
-    z-index: 2000;
-  }
-  .student-modal {
-    background: white;
-    width: 400px;
-    border-radius: 28px;
-    overflow: hidden;
-    animation: slideUp 0.3s ease-out;
-  }
-  @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-
-  .profile-header {
-    background: linear-gradient(135deg, #111827 0%, #1e293b 100%);
-    padding: 30px;
-    color: white;
-    text-align: center;
-  }
-
-  .detail-row {
-    padding: 15px 25px;
-    border-bottom: 1px solid #f1f5f9;
-    display: flex;
-    justify-content: space-between;
-  }
-
-  .boarding-list-container {
-    max-height: 520px;
-    overflow-y: auto;
-    padding-right: 8px;
-  }
+  .route-card:hover { transform: translateX(5px); border-color: #06b6d4; }
+  .map-container { height: 400px; background: #f1f5f9; border-radius: 24px; position: relative; overflow: hidden; border: 1px solid #e2e8f0; }
+  .custom-bus-marker { background: transparent; border: none; }
+  .boarding-list-container { max-height: 520px; overflow-y: auto; padding-right: 8px; }
+  .status-badge { font-size: 11px; padding: 4px 8px; border-radius: 12px; font-weight: bold; }
+  .status-on-route { background: #d1fae5; color: #059669; }
+  .status-delayed { background: #fef3c7; color: #d97706; }
+  .status-offline { background: #fee2e2; color: #dc2626; }
+  .status-arrived { background: #dbeafe; color: #2563eb; }
+  .status-maintenance { background: #f3f4f6; color: #4b5563; }
 `;
 
-const BusBoarding = ({ date }) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedStudent, setSelectedStudent] = useState(null);
-  
-  const [busPositions, setBusPositions] = useState([
-    { id: 'BUS-01', top: 40, left: 30, color: '#ef4444' },
-    { id: 'BUS-02', top: 65, left: 75, color: '#a855f7' }
-  ]);
+// --- Helpers ---
+const createBusIcon = (status) => {
+  const color = status === 'On Route' ? '#10b981' : status === 'Delayed' ? '#f59e0b' : status === 'Offline' ? '#ef4444' : status === 'Arrived' ? '#3b82f6' : '#6b7280';
+  return L.divIcon({
+    className: 'custom-bus-marker',
+    html: `<div style="background-color: ${color}; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(0,0,0,0.3);"></div>`,
+    iconSize: [20, 20],
+    iconAnchor: [10, 10]
+  });
+};
+
+const getStatusClass = (status) => {
+  if (status === 'On Route') return 'status-on-route';
+  if (status === 'Delayed') return 'status-delayed';
+  if (status === 'Offline') return 'status-offline';
+  if (status === 'Arrived') return 'status-arrived';
+  return 'status-maintenance';
+};
+
+// --- Context & Reducer ---
+const BusContext = createContext();
+
+const initialState = {
+  buses: [],
+  logs: [],
+  loading: true,
+  selectedBus: null,
+};
+
+function busReducer(state, action) {
+  switch(action.type) {
+    case 'SET_DATA':
+      return { ...state, buses: action.payload.buses, logs: action.payload.logs, loading: false };
+    case 'UPDATE_LOCATION':
+      return {
+        ...state,
+        buses: state.buses.map(b => b.id === action.payload.busId ? { ...b, currentLatitude: action.payload.lat, currentLongitude: action.payload.lng } : b)
+      };
+    case 'UPDATE_STATUS':
+      return {
+        ...state,
+        buses: state.buses.map(b => b.id === action.payload.busId ? { ...b, status: action.payload.status } : b)
+      };
+    case 'ADD_LOG':
+      return { ...state, logs: [action.payload, ...state.logs] };
+    case 'REMOVE_LOG':
+      return { ...state, logs: state.logs.filter(l => l.id !== action.payload.logId) };
+    case 'SET_SELECTED_BUS':
+      return { ...state, selectedBus: action.payload };
+    default: return state;
+  }
+}
+
+export const BusProvider = ({ children }) => {
+  const [state, dispatch] = useReducer(busReducer, initialState);
 
   useEffect(() => {
-    const moveBuses = setInterval(() => {
-      setBusPositions(prev => prev.map(bus => ({
-        ...bus,
-        top: Math.max(15, Math.min(85, bus.top + (Math.random() - 0.5) * 8)),
-        left: Math.max(15, Math.min(85, bus.left + (Math.random() - 0.5) * 8)),
-      })));
-    }, 3000);
-    return () => clearInterval(moveBuses);
+    const fetchInitialData = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const [busesRes, logsRes] = await Promise.all([
+          fetch('/api/bus', { headers: { Authorization: `Bearer ${token}` } }),
+          fetch('/api/bus/boarding-activity', { headers: { Authorization: `Bearer ${token}` } })
+        ]);
+        const busesData = await busesRes.json();
+        const logsData = await logsRes.json();
+        
+        if (busesData.success && logsData.success) {
+          dispatch({ type: 'SET_DATA', payload: { buses: busesData.buses, logs: logsData.logs } });
+        }
+      } catch (error) {
+        console.error('Failed to fetch bus data:', error);
+      }
+    };
+
+    fetchInitialData();
+
+    // Socket Setup
+    const token = localStorage.getItem('token');
+    const socket = io(process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000', {
+      auth: { token }
+    });
+
+    socket.on('busLocationUpdate', (data) => dispatch({ type: 'UPDATE_LOCATION', payload: data }));
+    socket.on('busStatusUpdate', (data) => dispatch({ type: 'UPDATE_STATUS', payload: data }));
+    socket.on('newBoarding', (log) => {
+      dispatch({ type: 'ADD_LOG', payload: log });
+      // Parent Notification Simulation
+      console.log(`[NOTIFICATION SENT] Your child ${log.student.fullName} boarded ${log.bus.busNumber} at ${log.locationName}.`);
+    });
+    socket.on('boardingDeleted', (data) => dispatch({ type: 'REMOVE_LOG', payload: data }));
+
+    return () => socket.disconnect();
   }, []);
 
-  const routes = [
-    { id: 'BUS-01', driver: 'Suresh Kumar', route: 'North Sector Loop', capacity: '45/50', status: 'On Route' },
-    { id: 'BUS-02', driver: 'Amit Singh', route: 'South Avenue Express', capacity: '32/50', status: 'On Route' },
-    { id: 'BUS-03', driver: 'Vikram J.', route: 'East Gate Shuttle', capacity: '0/50', status: 'Idle' },
-  ];
+  return <BusContext.Provider value={{ state, dispatch }}>{children}</BusContext.Provider>;
+};
 
-  const logs = [
-    { name: 'Karan Mehra', id: 'STU-992', stop: 'Sector 14', time: '07:45 AM', bus: 'BUS-01', parent: 'Mr. Rajesh Mehra', phone: '+91 98765-43210', address: 'B-42, Blue Apartments' },
-    { name: 'Ishita Rai', id: 'STU-441', stop: 'Main Square', time: '08:10 AM', bus: 'BUS-01', parent: 'Mrs. Sunita Rai', phone: '+91 98221-10044', address: 'Villa 7, Green View' },
-    { name: 'Arnav Vats', id: 'STU-112', stop: 'Lake View', time: '08:22 AM', bus: 'BUS-02', parent: 'Mr. Anil Vats', phone: '+91 91122-33445', address: 'Flat 201, Lake Residency' },
-    { name: 'Sana Khan', id: 'STU-201', stop: 'Park Street', time: '08:35 AM', bus: 'BUS-01', parent: 'Mr. Yusuf Khan', phone: '+91 70012-34567', address: 'House 11, Park Lane' },
-    { name: 'Rahul Dev', id: 'STU-882', stop: 'Green Park', time: '08:42 AM', bus: 'BUS-02', parent: 'Mr. Mahesh Dev', phone: '+91 88001-12233', address: 'Sector 5, Gate 2' },
-  ];
+// --- Main Component ---
+const BusBoardingInner = () => {
+  const { state, dispatch } = useContext(BusContext);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedStudent, setSelectedStudent] = useState(null);
+
+  const filteredLogs = useMemo(() => {
+    if (!searchTerm) return state.logs;
+    const lower = searchTerm.toLowerCase();
+    return state.logs.filter(log => 
+      log.student.fullName.toLowerCase().includes(lower) || 
+      log.student.studentId?.toLowerCase().includes(lower) ||
+      log.bus.busNumber.toLowerCase().includes(lower)
+    );
+  }, [state.logs, searchTerm]);
+
+  if (state.loading) {
+    return <div className="p-5 text-center text-muted"><div className="spinner-border text-primary mb-3"></div><br/>Loading fleet data...</div>;
+  }
+
+  // Default center if no buses have locations (e.g. India center)
+  const defaultCenter = [28.6139, 77.2090];
+  const centerBus = state.buses.find(b => b.currentLatitude && b.currentLongitude);
+  const mapCenter = centerBus ? [centerBus.currentLatitude, centerBus.currentLongitude] : defaultCenter;
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in p-3">
       <style>{busStyles}</style>
       
       {/* STUDENT PROFILE MODAL */}
       {selectedStudent && (
-        <div className="student-modal-overlay" onClick={() => setSelectedStudent(null)}>
-          <div className="student-modal" onClick={e => e.stopPropagation()}>
-            <div className="profile-header">
-              <img src={`https://i.pravatar.cc/150?u=${selectedStudent.id}`} className="rounded-circle border border-4 border-white mb-3" style={{width: 80, height: 80}} alt="" />
-              <h4 className="m-0 fw-bold">{selectedStudent.name}</h4>
-              <div className="opacity-75 small">{selectedStudent.id}</div>
+        <div className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" style={{background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)', zIndex: 2000}} onClick={() => setSelectedStudent(null)}>
+          <div className="bg-white rounded-4 overflow-hidden shadow-lg" style={{width: '400px', animation: 'slideUp 0.3s ease-out'}} onClick={e => e.stopPropagation()}>
+            <div className="p-4 text-center text-white" style={{background: 'linear-gradient(135deg, #111827 0%, #1e293b 100%)'}}>
+              <img src={`https://i.pravatar.cc/150?u=${selectedStudent.studentId}`} className="rounded-circle border border-4 border-white mb-3" style={{width: 80, height: 80}} alt="" />
+              <h4 className="m-0 fw-bold">{selectedStudent.student.fullName}</h4>
+              <div className="opacity-75 small">{selectedStudent.student.studentId || selectedStudent.student.rollNumber}</div>
             </div>
-            <div className="p-2">
-              <div className="detail-row">
-                <span className="text-muted small">Assigned Stoppage</span>
-                <span className="fw-bold">{selectedStudent.stop}</span>
+            <div className="p-3">
+              <div className="d-flex justify-content-between p-2 border-bottom">
+                <span className="text-muted small">Boarding Location</span>
+                <span className="fw-bold">{selectedStudent.locationName}</span>
               </div>
-              <div className="detail-row">
-                <span className="text-muted small">Parent/Guardian</span>
-                <span className="fw-bold">{selectedStudent.parent}</span>
+              <div className="d-flex justify-content-between p-2 border-bottom">
+                <span className="text-muted small">Time</span>
+                <span className="fw-bold">{new Date(selectedStudent.boardedAt).toLocaleTimeString()}</span>
               </div>
-              <div className="detail-row">
+              <div className="d-flex justify-content-between p-2 border-bottom">
+                <span className="text-muted small">Assigned Bus</span>
+                <span className="badge bg-primary">{selectedStudent.bus.busNumber}</span>
+              </div>
+              <div className="d-flex justify-content-between p-2">
                 <span className="text-muted small">Contact Number</span>
-                <span className="fw-bold text-primary">{selectedStudent.phone}</span>
-              </div>
-              <div className="detail-row">
-                <span className="text-muted small">Home Address</span>
-                <span className="fw-bold text-end" style={{maxWidth: '150px'}}>{selectedStudent.address}</span>
+                <span className="fw-bold text-primary">{selectedStudent.student.phoneNumber || 'N/A'}</span>
               </div>
             </div>
-            <div className="p-4 d-flex gap-2">
-              <button className="btn btn-primary w-100 rounded-pill py-2" onClick={() => window.open(`tel:${selectedStudent.phone}`)}>
+            <div className="p-3 bg-light d-flex gap-2">
+              <button className="btn btn-primary w-100 rounded-pill" onClick={() => window.open(`tel:${selectedStudent.student.phoneNumber}`)}>
                 <i className="bi bi-telephone-fill me-2"></i>Call Parent
               </button>
-              <button className="btn btn-light w-100 rounded-pill py-2" onClick={() => setSelectedStudent(null)}>Close</button>
+              <button className="btn btn-outline-secondary w-100 rounded-pill" onClick={() => setSelectedStudent(null)}>Close</button>
             </div>
           </div>
         </div>
       )}
 
+      <div className="mb-4">
+        <h4 className="fw-bold m-0 text-dark">Fleet Management</h4>
+        <p className="text-muted small">Real-time bus tracking and boarding logs</p>
+      </div>
+
       <div className="bus-grid">
         <div className="d-flex flex-column gap-4">
-          <div className="section-card p-0 overflow-hidden shadow-sm border-0">
-            <div className="p-4 d-flex justify-content-between align-items-center bg-white">
+          <div className="card p-0 overflow-hidden shadow-sm border-0 rounded-4">
+            <div className="p-3 d-flex justify-content-between align-items-center bg-white border-bottom">
               <h6 className="fw-bold m-0 text-dark"><i className="bi bi-geo-alt-fill text-danger me-2"></i>Live Fleet Map</h6>
-              <span className="badge bg-info-subtle text-info border-0 px-3 py-2" style={{borderRadius: '10px'}}>2 Buses Tracking</span>
+              <span className="badge bg-info-subtle text-info border-0 px-3 py-2 rounded-pill">{state.buses.filter(b => b.currentLatitude).length} Tracking</span>
             </div>
-            <div className="map-container">
-              <svg width="100%" height="100%" className="position-absolute">
-                <path d="M 0 150 Q 300 180 600 150 T 1200 150" fill="none" stroke="#e2e8f0" strokeWidth="30" />
-                <path d="M 40% 0 L 40% 100%" fill="none" stroke="#e2e8f0" strokeWidth="25" />
-              </svg>
-              {busPositions.map(bus => (
-                <div key={bus.id} className="gps-marker" style={{ top: `${bus.top}%`, left: `${bus.left}%` }}>
-                  <div className="pulse-ring" style={{ borderColor: bus.color }}></div>
-                  <div className="marker-icon" style={{ backgroundColor: bus.color }}></div>
-                  <div className="position-absolute top-100 start-50 translate-middle-x mt-2">
-                    <span className="badge bg-dark px-2">{bus.id}</span>
-                  </div>
-                </div>
-              ))}
+            <div className="map-container rounded-0">
+              <MapContainer center={mapCenter} zoom={13} style={{ height: '100%', width: '100%' }}>
+                <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" attribution="&copy; OpenStreetMap" />
+                {state.buses.map(bus => bus.currentLatitude && bus.currentLongitude && (
+                  <Marker key={bus.id} position={[bus.currentLatitude, bus.currentLongitude]} icon={createBusIcon(bus.status)}>
+                    <Popup>
+                      <strong>{bus.busNumber}</strong><br/>
+                      Driver: {bus.driverName}<br/>
+                      Route: {bus.routeName}<br/>
+                      Status: <span className={getStatusClass(bus.status)}>{bus.status}</span>
+                    </Popup>
+                  </Marker>
+                ))}
+              </MapContainer>
             </div>
           </div>
 
           <div>
-            <h6 className="fw-bold mb-3 text-secondary" style={{fontSize: '0.9rem', letterSpacing: '0.5px'}}>ACTIVE VEHICLE STATUS</h6>
+            <h6 className="fw-bold mb-3 text-secondary" style={{fontSize: '0.85rem', letterSpacing: '0.5px'}}>ACTIVE VEHICLE STATUS</h6>
             <div className="row g-3">
-              {routes.map(route => (
-                <div key={route.id} className="col-md-6">
-                  <div className="route-card border-0 shadow-sm">
+              {state.buses.map(bus => (
+                <div key={bus.id} className="col-md-6">
+                  <div className={`route-card border-0 shadow-sm ${state.selectedBus === bus.id ? 'border-primary' : ''}`} onClick={() => dispatch({type: 'SET_SELECTED_BUS', payload: bus.id})}>
                     <div className="d-flex justify-content-between mb-3">
-                      <div className="stat-icon" style={{background: '#f1f5f9', color: '#334155', width: 40, height: 40}}><i className="bi bi-bus-front"></i></div>
-                      <span className={`bus-badge ${route.status === 'Idle' ? 'status-off' : 'status-on'}`}>{route.status}</span>
+                      <div className="d-flex align-items-center justify-content-center rounded-circle" style={{background: '#f1f5f9', color: '#334155', width: 40, height: 40}}>
+                        <i className="bi bi-bus-front"></i>
+                      </div>
+                      <span className={`status-badge ${getStatusClass(bus.status)}`}>{bus.status}</span>
                     </div>
-                    <div className="fw-bold text-dark">{route.id} — {route.driver}</div>
-                    <div className="text-muted small mb-3">{route.route}</div>
-                    <div className="progress-bar-bg" style={{height: '6px'}}><div className="progress-fill" style={{width: '75%', background: 'var(--accent-cyan)'}}></div></div>
+                    <div className="fw-bold text-dark">{bus.busNumber} — {bus.driverName}</div>
+                    <div className="text-muted small mb-3">{bus.routeName}</div>
+                    <div className="d-flex justify-content-between align-items-center mb-1">
+                      <span className="small text-muted">Boarded</span>
+                      <span className="small fw-bold">{bus.activeStudents || 0}</span>
+                    </div>
+                    <div className="progress bg-light" style={{height: '6px'}}>
+                      <div className="progress-bar bg-success" style={{width: `${Math.min(((bus.activeStudents||0)/50)*100, 100)}%`}}></div>
+                    </div>
                   </div>
                 </div>
               ))}
+              {state.buses.length === 0 && <div className="text-muted">No buses registered in the system.</div>}
             </div>
           </div>
         </div>
 
-        <div className="section-card border-0 shadow-sm h-100">
-          <h6 className="fw-bold mb-4 d-flex align-items-center text-dark">
-            <i className="bi bi-clock-history text-primary me-2"></i>Boarding Activity
-          </h6>
-          <div className="search-mini mb-4 border-0 bg-light p-3 d-flex align-items-center rounded-3">
-            <i className="bi bi-search me-2 text-muted"></i>
-            <input 
-              type="text" 
-              placeholder="Filter by student..." 
-              className="bg-transparent border-0 w-100 outline-none" 
-              style={{fontSize: '0.85rem', outline: 'none'}}
-              onChange={(e) => setSearchTerm(e.target.value.toLowerCase())}
-            />
+        <div className="card border-0 shadow-sm rounded-4 h-100 p-0">
+          <div className="p-4 border-bottom">
+            <h6 className="fw-bold mb-3 d-flex align-items-center text-dark m-0">
+              <i className="bi bi-clock-history text-primary me-2"></i>Boarding Activity
+            </h6>
+            <div className="search-mini border-0 bg-light p-2 px-3 d-flex align-items-center rounded-3">
+              <i className="bi bi-search me-2 text-muted"></i>
+              <input 
+                type="text" 
+                placeholder="Filter by student or bus..." 
+                className="bg-transparent border-0 w-100 outline-none shadow-none" 
+                style={{fontSize: '0.85rem', outline: 'none'}}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
           </div>
 
-          <div className="boarding-list-container">
-            {logs.filter(p => p.name.toLowerCase().includes(searchTerm)).map((p, idx) => (
-              <div key={idx} 
-                   className="p-3 mb-3 rounded-4 bg-white border border-light shadow-sm" 
-                   style={{cursor: 'pointer'}} 
-                   onClick={() => setSelectedStudent(p)}>
+          <div className="boarding-list-container p-3 pt-0 mt-3">
+            {filteredLogs.length === 0 && <div className="text-center text-muted small mt-4">No recent boarding activity.</div>}
+            {filteredLogs.map((log) => (
+              <div key={log.id} 
+                   className="p-3 mb-2 rounded-4 bg-white border border-light shadow-sm" 
+                   style={{cursor: 'pointer', transition: '0.2s'}} 
+                   onClick={() => setSelectedStudent(log)}>
                 <div className="d-flex justify-content-between align-items-center">
                   <div className="d-flex align-items-center gap-2">
-                    <img src={`https://i.pravatar.cc/150?u=${p.id}`} className="rounded-circle" style={{width: 32, height: 32}} alt="" />
+                    <img src={`https://i.pravatar.cc/150?u=${log.studentId}`} className="rounded-circle" style={{width: 32, height: 32}} alt="" />
                     <div>
-                      <div className="fw-bold small text-dark">{p.name}</div>
-                      <div className="text-muted" style={{fontSize: '10px'}}>{p.id}</div>
+                      <div className="fw-bold small text-dark">{log.student.fullName}</div>
+                      <div className="text-muted" style={{fontSize: '10px'}}>{log.student.studentId || log.student.rollNumber}</div>
                     </div>
                   </div>
-                  <span className="badge bg-light text-dark border-0">{p.bus}</span>
+                  <span className="badge bg-light text-dark border-0">{log.bus.busNumber}</span>
                 </div>
                 <div className="d-flex justify-content-between mt-3 text-muted" style={{fontSize: '11px'}}>
-                  <span><i className="bi bi-pin-map-fill me-1 text-primary"></i>{p.stop}</span>
-                  <span>{p.time}</span>
+                  <span><i className="bi bi-pin-map-fill me-1 text-primary"></i>{log.locationName}</span>
+                  <span>{new Date(log.boardedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                 </div>
               </div>
             ))}
@@ -261,4 +292,10 @@ const BusBoarding = ({ date }) => {
   );
 };
 
-export default BusBoarding;
+export default function BusBoarding() {
+  return (
+    <BusProvider>
+      <BusBoardingInner />
+    </BusProvider>
+  );
+}

@@ -1,87 +1,171 @@
-
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const Students = () => {
   // --- State Management ---
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Filters
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterGender] = useState('All');
   const [filterClass, setFilterClass] = useState('All');
   const [filterDate, setFilterDate] = useState('');
+  
+  // UI State
   const [activeMenu, setActiveMenu] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedProfile, setSelectedProfile] = useState(null);
   const [selectedActivity, setSelectedActivity] = useState(null);
   const [confirmToggle, setConfirmToggle] = useState(null);
   
-  const [studentData, setStudentData] = useState([
-    { id: "STU-2024-001", name: "Arjun Sharma", gender: "Male", rfid: "RFID-A1B2", class: "10-A", email: "arjun@edu.com", status: "active", img: "https://xsgames.co/randomusers/assets/avatars/male/1.jpg", joinedDate: "2024-03-20", phone: "+91 98765 43210", guardian: "Rajesh Sharma" },
-    { id: "STU-2024-042", name: "Priya Patel", gender: "Female", rfid: "RFID-E5F6", class: "10-B", email: "priya@edu.com", status: "active", img: "https://xsgames.co/randomusers/assets/avatars/female/2.jpg", joinedDate: "2024-03-22", phone: "+91 98765 43211", guardian: "Suresh Patel" },
-    { id: "STU-2024-089", name: "Rahul Kumar", gender: "Male", rfid: "RFID-R9T0", class: "9-A", email: "rahul@edu.com", status: "active", img: "https://xsgames.co/randomusers/assets/avatars/male/5.jpg", joinedDate: "2024-03-25", phone: "+91 98765 43212", guardian: "Vijay Kumar" },
-    { id: "STU-2024-102", name: "Ananya Iyer", gender: "Female", rfid: "RFID-B7D2", class: "11-A", email: "ananya@edu.com", status: "active", img: "https://xsgames.co/randomusers/assets/avatars/female/8.jpg", joinedDate: "2024-01-15", phone: "+91 98765 43215", guardian: "Laxmi Iyer" },
-    { id: "STU-2024-215", name: "Vikram Singh", gender: "Male", rfid: "RFID-C4G9", class: "12-B", email: "vikram@edu.com", status: "inactive", img: "https://xsgames.co/randomusers/assets/avatars/male/12.jpg", joinedDate: "2023-11-05", phone: "+91 98765 43218", guardian: "Karan Singh" },
-    { id: "STU-2024-334", name: "Sanya Mirza", gender: "Female", rfid: "RFID-K1L0", class: "10-A", email: "sanya@edu.com", status: "active", img: "https://xsgames.co/randomusers/assets/avatars/female/15.jpg", joinedDate: "2024-02-10", phone: "+91 98765 43220", guardian: "Imran Mirza" },
-    { id: "STU-2024-411", name: "Rohan Das", gender: "Male", rfid: "RFID-Q8W3", class: "9-B", email: "rohan@edu.com", status: "active", img: "https://xsgames.co/randomusers/assets/avatars/male/18.jpg", joinedDate: "2024-03-01", phone: "+91 98765 43222", guardian: "Alok Das" },
-    { id: "STU-2024-505", name: "Meera Reddy", gender: "Female", rfid: "RFID-P2M5", class: "11-B", email: "meera@edu.com", status: "active", img: "https://xsgames.co/randomusers/assets/avatars/female/22.jpg", joinedDate: "2024-01-20", phone: "+91 98765 43225", guardian: "Venkat Reddy" },
-    { id: "STU-2024-612", name: "Kabir Khan", gender: "Male", rfid: "RFID-X9V4", class: "12-A", email: "kabir@edu.com", status: "active", img: "https://xsgames.co/randomusers/assets/avatars/male/25.jpg", joinedDate: "2023-12-12", phone: "+91 98765 43228", guardian: "Zubair Khan" },
-    { id: "STU-2024-703", name: "Ishita Paul", gender: "Female", rfid: "RFID-Z3Y7", class: "9-A", email: "ishita@edu.com", status: "inactive", img: "https://xsgames.co/randomusers/assets/avatars/female/30.jpg", joinedDate: "2024-03-10", phone: "+91 98765 43230", guardian: "Joy Paul" },
-    { id: "STU-2024-818", name: "Zoya Akhtar", gender: "Female", rfid: "RFID-H6N2", class: "10-B", email: "zoya@edu.com", status: "active", img: "https://xsgames.co/randomusers/assets/avatars/female/35.jpg", joinedDate: "2024-02-28", phone: "+91 98765 43233", guardian: "Javed Akhtar" },
-    { id: "STU-2024-925", name: "Aditya Verma", gender: "Male", rfid: "RFID-J5S1", class: "11-A", email: "aditya@edu.com", status: "active", img: "https://xsgames.co/randomusers/assets/avatars/male/38.jpg", joinedDate: "2024-01-05", phone: "+91 98765 43235", guardian: "Nitin Verma" },
-  ]);
-
   const [newStudent, setNewStudent] = useState({
-    name: '', gender: 'Male', rfid: '', class: '', email: '', status: 'active', phone: '', guardian: ''
+    fullName: '', gender: '', rfidTag: '', className: '', email: '', phoneNumber: '', guardianName: '', joinedDate: ''
   });
+  const [isOtherGender, setIsOtherGender] = useState(false);
 
-  const mockActivities = [
-    { type: 'Attendance', detail: 'Entry at Main Gate', time: '08:15 AM', date: 'Today', icon: 'door-open', color: 'success' },
-    { type: 'Bus', detail: 'Boarded Route 42B', time: '07:30 AM', date: 'Today', icon: 'bus-front', color: 'warning' },
-    { type: 'Library', detail: 'Borrowed "Advanced Physics"', time: '11:20 AM', date: 'Yesterday', icon: 'book', color: 'info' },
-    { type: 'Payment', detail: 'Monthly Fee Received', time: '02:00 PM', date: '2 days ago', icon: 'credit-card', color: 'primary' },
-  ];
+  const [classes, setClasses] = useState(['All']);
 
-  // --- Logic ---
-  const classes = ['All', ...new Set(studentData.map(s => s.class))].sort();
+  // --- API Calls ---
+  const fetchStudents = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const queryParams = new URLSearchParams();
+      if (searchQuery) queryParams.append('search', searchQuery);
+      if (filterClass !== 'All') queryParams.append('class', filterClass);
+      if (filterDate) queryParams.append('joinedDate', filterDate);
 
-  const generateRFID = () => {
-    const randomHex = Math.random().toString(16).toUpperCase().substring(2, 6);
-    setNewStudent({ ...newStudent, rfid: `RFID-${randomHex}` });
+      const response = await fetch(`/api/students?${queryParams.toString()}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      
+      if (response.ok) {
+        setStudents(data);
+        // Extract unique classes if not filtering by class
+        if (filterClass === 'All') {
+          const uniqueClasses = ['All', ...new Set(data.map(s => s.className))].sort();
+          setClasses(uniqueClasses);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch students:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleAddStudent = (e) => {
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      fetchStudents();
+    }, 300);
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery, filterClass, filterDate]);
+
+  const generateRFID = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/students/assign-rfid', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (data.success) {
+        setNewStudent({ ...newStudent, rfidTag: data.rfid });
+      }
+    } catch (error) {
+      console.error('Error generating RFID:', error);
+    }
+  };
+
+  const handleAddStudent = async (e) => {
     e.preventDefault();
-    const id = `STU-2024-${Math.floor(100 + Math.random() * 900)}`;
-    const img = `https://xsgames.co/randomusers/assets/avatars/${newStudent.gender.toLowerCase()}/${Math.floor(Math.random() * 50)}.jpg`;
-    const joinedDate = new Date().toISOString().split('T')[0];
-    
-    setStudentData([ { ...newStudent, id, img, joinedDate }, ...studentData]);
-    setShowAddModal(false);
-    setNewStudent({ name: '', gender: 'Male', rfid: '', class: '', email: '', status: 'active', phone: '', guardian: '' });
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/students/create', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(newStudent)
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        setShowAddModal(false);
+        setNewStudent({ fullName: '', gender: '', rfidTag: '', className: '', email: '', phoneNumber: '', guardianName: '', joinedDate: '' });
+        setIsOtherGender(false);
+        fetchStudents();
+      } else {
+        alert(data.message || 'Error registering student');
+      }
+    } catch (error) {
+      console.error('Registration error:', error);
+      alert('Network error occurred.');
+    }
   };
 
-  const toggleCardStatus = (studentId) => {
-    setStudentData(studentData.map(s => 
-      s.id === studentId ? { ...s, status: s.status === 'active' ? 'inactive' : 'active' } : s
-    ));
-    setConfirmToggle(null);
-    setActiveMenu(null);
+  const toggleCardStatus = async (studentId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const newStatus = confirmToggle.status === 'active' ? 'inactive' : 'active';
+      const response = await fetch(`/api/students/${studentId}/status`, {
+        method: 'PATCH',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+      
+      if (response.ok) {
+        fetchStudents();
+      }
+    } catch (error) {
+      console.error('Error toggling status:', error);
+    } finally {
+      setConfirmToggle(null);
+      setActiveMenu(null);
+    }
   };
 
-  const filteredStudents = studentData
-    .filter(student => {
-      const matchesSearch = student.rfid.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                            student.name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesGender = filterGender === 'All' || student.gender === filterGender;
-      const matchesClass = filterClass === 'All' || student.class === filterClass;
-      const matchesDate = !filterDate || student.joinedDate === filterDate;
-      return matchesSearch && matchesGender && matchesClass && matchesDate;
-    })
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const fetchStudentActivities = async (student) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/students/${student.id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setSelectedActivity({
+          name: student.fullName,
+          activities: data.activities || []
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching activities:', error);
+    }
+  };
+
+  const formatDate = (isoString) => {
+    if (!isoString) return 'N/A';
+    const date = new Date(isoString);
+    const dd = String(date.getDate()).padStart(2, '0');
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const yyyy = date.getFullYear();
+    return `${dd}-${mm}-${yyyy}`;
+  };
+
+  const formatDateTime = (isoString) => {
+    if (!isoString) return 'N/A';
+    const date = new Date(isoString);
+    return date.toLocaleString();
+  };
 
   return (
     <div className="students-container animate-fade-in position-relative">
       
-      {/* --- Add Student Modal (Restored) --- */}
+      {/* --- Add Student Modal --- */}
       {showAddModal && (
         <div className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" style={{ zIndex: 1050, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}>
           <div className="bg-white rounded-4 shadow-lg p-4 animate-fade-in" style={{ width: '100%', maxWidth: '650px' }}>
@@ -93,36 +177,65 @@ const Students = () => {
               <div className="row g-3">
                 <div className="col-md-6">
                   <label className="form-label small fw-bold">Full Name</label>
-                  <input type="text" className="form-control" required placeholder="Arjun Sharma" value={newStudent.name} onChange={e => setNewStudent({...newStudent, name: e.target.value})} />
+                  <input type="text" className="form-control" required placeholder="Arjun Sharma" value={newStudent.fullName} onChange={e => setNewStudent({...newStudent, fullName: e.target.value})} />
                 </div>
                 <div className="col-md-3">
                   <label className="form-label small fw-bold">Gender</label>
-                  <select className="form-select" value={newStudent.gender} onChange={e => setNewStudent({...newStudent, gender: e.target.value})}>
+                  <select 
+                    className="form-select" 
+                    value={isOtherGender ? 'Other' : newStudent.gender} 
+                    onChange={e => {
+                      if (e.target.value === 'Other') {
+                        setIsOtherGender(true);
+                        setNewStudent({...newStudent, gender: ''});
+                      } else {
+                        setIsOtherGender(false);
+                        setNewStudent({...newStudent, gender: e.target.value});
+                      }
+                    }}
+                    required
+                  >
+                    <option value="" disabled>Select Gender</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
+                    <option value="Other">Other</option>
                   </select>
+                  {isOtherGender && (
+                    <input 
+                      type="text" 
+                      className="form-control mt-2 animate-fade-in" 
+                      placeholder="Specify Gender" 
+                      value={newStudent.gender} 
+                      onChange={e => setNewStudent({...newStudent, gender: e.target.value})} 
+                      required 
+                    />
+                  )}
                 </div>
                 <div className="col-md-3">
                   <label className="form-label small fw-bold">Class</label>
-                  <input type="text" className="form-control" required placeholder="10-A" value={newStudent.class} onChange={e => setNewStudent({...newStudent, class: e.target.value})} />
+                  <input type="text" className="form-control" required placeholder="10-A" value={newStudent.className} onChange={e => setNewStudent({...newStudent, className: e.target.value})} />
                 </div>
                 <div className="col-md-6">
                   <label className="form-label small fw-bold">Email Address</label>
-                  <input type="email" className="form-control" placeholder="arjun@edu.com" value={newStudent.email} onChange={e => setNewStudent({...newStudent, email: e.target.value})} />
+                  <input type="email" className="form-control" required placeholder="arjun@edu.com" value={newStudent.email} onChange={e => setNewStudent({...newStudent, email: e.target.value})} />
                 </div>
                 <div className="col-md-6">
                   <label className="form-label small fw-bold">Phone Number</label>
-                  <input type="tel" className="form-control" placeholder="+91 98765 43210" value={newStudent.phone} onChange={e => setNewStudent({...newStudent, phone: e.target.value})} />
+                  <input type="tel" className="form-control" required placeholder="+91 98765 43210" value={newStudent.phoneNumber} onChange={e => setNewStudent({...newStudent, phoneNumber: e.target.value})} />
                 </div>
-                <div className="col-md-12">
+                <div className="col-md-6">
                   <label className="form-label small fw-bold">Guardian Name</label>
-                  <input type="text" className="form-control" placeholder="Parent/Guardian Full Name" value={newStudent.guardian} onChange={e => setNewStudent({...newStudent, guardian: e.target.value})} />
+                  <input type="text" className="form-control" required placeholder="Parent/Guardian Full Name" value={newStudent.guardianName} onChange={e => setNewStudent({...newStudent, guardianName: e.target.value})} />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label small fw-bold">Joined Date</label>
+                  <input type="date" className="form-control" required value={newStudent.joinedDate} onChange={e => setNewStudent({...newStudent, joinedDate: e.target.value})} />
                 </div>
                 <div className="col-12">
                   <label className="form-label small fw-bold">RFID Assignment</label>
                   <div className="input-group">
                     <span className="input-group-text bg-light text-muted"><i className="bi bi-broadcast"></i></span>
-                    <input type="text" className="form-control fw-bold text-primary" value={newStudent.rfid} readOnly placeholder="Generate ID" />
+                    <input type="text" className="form-control fw-bold text-primary" value={newStudent.rfidTag} readOnly placeholder="Generate ID" />
                     <button className="btn btn-outline-primary" type="button" onClick={generateRFID}>Assign Tag</button>
                   </div>
                 </div>
@@ -148,24 +261,23 @@ const Students = () => {
             </div>
             <div className="p-4" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
               <div className="timeline-container ps-2 border-start ms-2">
-                {mockActivities.map((act, idx) => (
+                {selectedActivity.activities && selectedActivity.activities.length > 0 ? selectedActivity.activities.map((act, idx) => (
                   <div key={idx} className="mb-4 position-relative ps-4">
-                    <div className={`position-absolute start-0 top-0 translate-middle-x bg-${act.color} rounded-circle d-flex align-items-center justify-content-center shadow-sm`} 
+                    <div className={`position-absolute start-0 top-0 translate-middle-x bg-primary rounded-circle d-flex align-items-center justify-content-center shadow-sm`} 
                          style={{ width: '32px', height: '32px', marginLeft: '-1px' }}>
-                      <i className={`bi bi-${act.icon} text-white small`}></i>
+                      <i className={`bi bi-info-circle text-white small`}></i>
                     </div>
                     <div className="d-flex justify-content-between align-items-start">
                       <div>
-                        <div className="fw-bold small">{act.type}</div>
-                        <div className="text-muted" style={{ fontSize: '0.8rem' }}>{act.detail}</div>
+                        <div className="fw-bold small">{act.action}</div>
+                        <div className="text-muted" style={{ fontSize: '0.8rem' }}>{act.description}</div>
                       </div>
                       <div className="text-end text-muted" style={{ fontSize: '0.7rem' }}>
-                        <div>{act.time}</div>
-                        <div>{act.date}</div>
+                        <div>{formatDateTime(act.createdAt)}</div>
                       </div>
                     </div>
                   </div>
-                ))}
+                )) : <p className="text-muted text-center py-3">No recent activities found.</p>}
               </div>
             </div>
             <div className="p-3 bg-light text-center">
@@ -184,9 +296,9 @@ const Students = () => {
                 <span className={`badge ${selectedProfile.status === 'active' ? 'bg-success' : 'bg-danger'}`}>{selectedProfile.status.toUpperCase()}</span>
                 <button className="btn-close btn-close-white" onClick={() => setSelectedProfile(null)}></button>
               </div>
-              <img src={selectedProfile.img} className="rounded-circle border border-3 mb-2 shadow" style={{ width: 100, height: 100, objectFit: 'cover' }} alt="" />
-              <h4 className="m-0 fw-bold">{selectedProfile.name}</h4>
-              <div className="badge bg-light text-dark mt-1 px-3">{selectedProfile.id}</div>
+              <img src={selectedProfile.profileImage || `https://ui-avatars.com/api/?name=${selectedProfile.fullName}&background=random`} className="rounded-circle border border-3 mb-2 shadow" style={{ width: 100, height: 100, objectFit: 'cover' }} alt="" />
+              <h4 className="m-0 fw-bold">{selectedProfile.fullName}</h4>
+              <div className="badge bg-light text-dark mt-1 px-3">{selectedProfile.studentId}</div>
             </div>
             
             <div className="p-4">
@@ -196,11 +308,11 @@ const Students = () => {
                 <div className="row g-4 bg-light rounded-3 p-3 mx-0 border mb-4">
                   <div className="col-6">
                     <small className="text-muted d-block small-text">RFID TAG</small>
-                    <span className="fw-bold text-primary">{selectedProfile.rfid}</span>
+                    <span className="fw-bold text-primary">{selectedProfile.rfidTag || 'N/A'}</span>
                   </div>
                   <div className="col-6">
                     <small className="text-muted d-block small-text">CLASS</small>
-                    <span className="fw-bold">{selectedProfile.class}</span>
+                    <span className="fw-bold">{selectedProfile.className}</span>
                   </div>
                   <div className="col-6">
                     <small className="text-muted d-block small-text">EMAIL</small>
@@ -208,11 +320,11 @@ const Students = () => {
                   </div>
                   <div className="col-6">
                     <small className="text-muted d-block small-text">PHONE</small>
-                    <span className="small">{selectedProfile.phone}</span>
+                    <span className="small">{selectedProfile.phoneNumber}</span>
                   </div>
                   <div className="col-6">
                     <small className="text-muted d-block small-text">GUARDIAN</small>
-                    <span className="small">{selectedProfile.guardian}</span>
+                    <span className="small">{selectedProfile.guardianName}</span>
                   </div>
                   <div className="col-6">
                     <small className="text-muted d-block small-text">GENDER</small>
@@ -237,7 +349,7 @@ const Students = () => {
                 <i className={`bi bi-${confirmToggle.status === 'active' ? 'shield-slash' : 'shield-check'}`}></i>
             </div>
             <h6 className="fw-bold mb-3">RFID Card Control</h6>
-            <p className="small text-muted mb-4">You are about to <strong>{confirmToggle.status === 'active' ? 'Deactivate' : 'Activate'}</strong> {confirmToggle.name}'s card.</p>
+            <p className="small text-muted mb-4">You are about to <strong>{confirmToggle.status === 'active' ? 'Deactivate' : 'Activate'}</strong> {confirmToggle.fullName}'s card.</p>
             <div className="d-flex gap-2">
               <button className={`btn btn-sm ${confirmToggle.status === 'active' ? 'btn-danger' : 'btn-success'} flex-grow-1`} onClick={() => toggleCardStatus(confirmToggle.id)}>Confirm</button>
               <button className="btn btn-sm btn-light flex-grow-1 border" onClick={() => setConfirmToggle(null)}>Cancel</button>
@@ -252,7 +364,11 @@ const Students = () => {
           <h2 className="fw-bold m-0 text-dark">Student Directory</h2>
           <p className="text-muted small">Real-time RFID access management</p>
         </div>
-        <button className="btn btn-dark px-4 py-2 rounded-3 shadow-sm d-flex align-items-center gap-2" onClick={() => setShowAddModal(true)}>
+        <button className="btn btn-dark px-4 py-2 rounded-3 shadow-sm d-flex align-items-center gap-2" onClick={() => {
+          setNewStudent({ fullName: '', gender: '', rfidTag: '', className: '', email: '', phoneNumber: '', guardianName: '', joinedDate: '' });
+          setIsOtherGender(false);
+          setShowAddModal(true);
+        }}>
           <i className="bi bi-person-plus-fill"></i> Add Student
         </button>
       </div>
@@ -268,8 +384,7 @@ const Students = () => {
           <div className="col-lg-8 d-flex gap-2 justify-content-lg-end">
             <input type="date" className="form-control border-0 bg-light rounded-3" style={{width: '160px'}} value={filterDate} onChange={(e) => setFilterDate(e.target.value)} />
             <select className="form-select border-0 bg-light rounded-3" style={{width: '130px'}} value={filterClass} onChange={(e) => setFilterClass(e.target.value)}>
-              <option value="All">All Classes</option>
-              {classes.filter(c => c !== 'All').map(c => <option key={c} value={c}>{c}</option>)}
+              {classes.map(c => <option key={c} value={c}>{c === 'All' ? 'All Classes' : c}</option>)}
             </select>
           </div>
         </div>
@@ -288,47 +403,58 @@ const Students = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredStudents.map((student) => (
-                <tr key={student.id}>
-                  <td className="ps-4 py-3">
-                    <div className="d-flex align-items-center gap-3">
-                      <img src={student.img} className="rounded-circle border" style={{width: 38, height: 38, objectFit: 'cover'}} alt="" />
-                      <div>
-                        <div className="fw-bold small">{student.name}</div>
-                        <div className="text-muted" style={{fontSize: '9px'}}>{student.id}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td><code className="bg-primary-subtle text-primary px-2 py-1 rounded small fw-bold">{student.rfid}</code></td>
-                  <td className="small text-muted">{student.joinedDate}</td>
-                  <td>
-                    <span className={`badge rounded-pill ${student.status === 'active' ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger'}`}>
-                      ● {student.status}
-                    </span>
-                  </td>
-                  <td className="pe-4 text-end position-relative">
-                    <button className="btn btn-light btn-sm rounded-circle border shadow-sm" onClick={() => setActiveMenu(activeMenu === student.id ? null : student.id)}>
-                      <i className="bi bi-three-dots-vertical"></i>
-                    </button>
-                    {activeMenu === student.id && (
-                      <div className="position-absolute bg-white shadow-lg border rounded-3 py-2 text-start animate-fade-in" 
-                           style={{ right: '40px', top: '10px', zIndex: 100, minWidth: '190px' }}>
-                        <div className="px-3 py-2 dropdown-item cursor-pointer small d-flex align-items-center gap-2" onClick={() => { setSelectedProfile(student); setActiveMenu(null); }}>
-                          <i className="bi bi-info-circle text-primary"></i> View Info
-                        </div>
-                        <div className="px-3 py-2 dropdown-item cursor-pointer small d-flex align-items-center gap-2" onClick={() => { setSelectedActivity(student); setActiveMenu(null); }}>
-                          <i className="bi bi-clock-history text-warning"></i> Recent Activity
-                        </div>
-                        <div className={`px-3 py-2 dropdown-item cursor-pointer small d-flex align-items-center gap-2 ${student.status === 'active' ? 'text-danger fw-bold' : 'text-success fw-bold'}`} 
-                             onClick={() => setConfirmToggle(student)}>
-                          <i className={`bi bi-${student.status === 'active' ? 'shield-slash' : 'shield-check'}`}></i>
-                          {student.status === 'active' ? 'Disable Access' : 'Enable Access'}
+              {loading ? (
+                <tr><td colSpan="5" className="text-center py-4">Loading...</td></tr>
+              ) : students.length === 0 ? (
+                <tr><td colSpan="5" className="text-center py-4 text-muted">No students found.</td></tr>
+              ) : (
+                students.map((student) => (
+                  <tr key={student.id}>
+                    <td className="ps-4 py-3">
+                      <div className="d-flex align-items-center gap-3">
+                        <img src={student.profileImage || `https://ui-avatars.com/api/?name=${student.fullName}&background=random`} className="rounded-circle border" style={{width: 38, height: 38, objectFit: 'cover'}} alt="" />
+                        <div>
+                          <div className="fw-bold small">{student.fullName}</div>
+                          <div className="text-muted" style={{fontSize: '9px'}}>{student.studentId}</div>
                         </div>
                       </div>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td>
+                      {student.rfidTag ? 
+                        <code className="bg-primary-subtle text-primary px-2 py-1 rounded small fw-bold">{student.rfidTag}</code> : 
+                        <span className="text-muted small">Not Assigned</span>
+                      }
+                    </td>
+                    <td className="small text-muted">{formatDate(student.joinedDate)}</td>
+                    <td>
+                      <span className={`badge rounded-pill ${student.status === 'active' ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger'}`}>
+                        ● {student.status}
+                      </span>
+                    </td>
+                    <td className="pe-4 text-end position-relative">
+                      <button className="btn btn-light btn-sm rounded-circle border shadow-sm" onClick={() => setActiveMenu(activeMenu === student.id ? null : student.id)}>
+                        <i className="bi bi-three-dots-vertical"></i>
+                      </button>
+                      {activeMenu === student.id && (
+                        <div className="position-absolute bg-white shadow-lg border rounded-3 py-2 text-start animate-fade-in" 
+                             style={{ right: '40px', top: '10px', zIndex: 100, minWidth: '190px' }}>
+                          <div className="px-3 py-2 dropdown-item cursor-pointer small d-flex align-items-center gap-2" onClick={() => { setSelectedProfile(student); setActiveMenu(null); }}>
+                            <i className="bi bi-info-circle text-primary"></i> View Info
+                          </div>
+                          <div className="px-3 py-2 dropdown-item cursor-pointer small d-flex align-items-center gap-2" onClick={() => { fetchStudentActivities(student); setActiveMenu(null); }}>
+                            <i className="bi bi-clock-history text-warning"></i> Recent Activity
+                          </div>
+                          <div className={`px-3 py-2 dropdown-item cursor-pointer small d-flex align-items-center gap-2 ${student.status === 'active' ? 'text-danger fw-bold' : 'text-success fw-bold'}`} 
+                               onClick={() => setConfirmToggle(student)}>
+                            <i className={`bi bi-${student.status === 'active' ? 'shield-slash' : 'shield-check'}`}></i>
+                            {student.status === 'active' ? 'Disable Access' : 'Enable Access'}
+                          </div>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
