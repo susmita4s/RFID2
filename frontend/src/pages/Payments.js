@@ -105,23 +105,23 @@ const Payments = () => {
           <tbody>
             {filtered.map((txn, i) => (
               <tr key={i} className="border-bottom">
-                <td className="ps-4 py-3">
+                <td className="ps-4 py-3" data-label="Student">
                   <div className="fw-bold small">{txn.student}</div>
                   <div className="text-muted small" style={{fontSize: '11px'}}>{txn.stuId}</div>
                 </td>
-                <td>
+                <td data-label="Description">
                   <div className="small">{txn.type}</div>
                   <div className="text-muted small" style={{fontSize: '11px'}}>{txn.date}</div>
                 </td>
-                <td className="fw-bold small text-dark">{txn.amount}</td>
-                <td>
+                <td className="fw-bold small text-dark" data-label="Amount">{txn.amount}</td>
+                <td data-label="Status">
                   <span className={`badge rounded-pill px-3 ${
                     txn.status === 'Completed' ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning'
                   }`}>
                     {txn.status}
                   </span>
                 </td>
-                <td className="text-end pe-4 d-print-none">
+                <td className="text-end pe-4 d-print-none" data-label="Action">
                   <button className="btn btn-sm btn-light rounded-circle shadow-sm" onClick={() => handleViewDetails(txn)}>
                     <i className="bi bi-eye text-primary"></i>
                   </button>

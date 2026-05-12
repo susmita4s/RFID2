@@ -49,6 +49,7 @@ import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 // Ensure your CSS is imported here
 import './Login.css'; 
+import './Responsive.css'; 
 
 const App = () => {
   const [userRole, setUserRole] = useState(null);

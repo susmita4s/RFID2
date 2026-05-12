@@ -57,7 +57,7 @@ const Library = () => {
   }, [searchTerm, statusFilter, activeTab, booksData]);
 
   return (
-    <div className="p-3 bg-light min-vh-100">
+    <div className="p-3 bg-light min-vh-100 library-container">
       {/* Scanner Modal omitted for brevity, keep yours here */}
       {showScanModal && (
         <div className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" style={{ zIndex: 2000, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}>
@@ -115,18 +115,18 @@ const Library = () => {
                 <tbody className="border-top-0">
                   {filteredBooks.map((book, idx) => (
                     <tr key={idx}>
-                      <td className="ps-4"><div className="fw-bold small text-dark">{book.title}</div><div className="text-muted smaller" style={{ fontSize: '11px' }}>{book.id}</div></td>
-                      <td>
+                      <td className="ps-4" data-label="Book Info"><div className="fw-bold small text-dark">{book.title}</div><div className="text-muted smaller" style={{ fontSize: '11px' }}>{book.id}</div></td>
+                      <td data-label="Student">
                         <div className="d-flex align-items-center gap-2">
                           <img src={`https://i.pravatar.cc/150?u=${book.stuId}`} className="rounded-circle border" width="28" alt="" />
                           <div><div className="fw-semibold small">{book.student}</div><div className="text-muted smaller" style={{ fontSize: '10px' }}>{book.stuId}</div></div>
                         </div>
                       </td>
-                      <td className="smaller text-muted" style={{ fontSize: '11px' }}>
+                      <td className="smaller text-muted" style={{ fontSize: '11px' }} data-label="Timeline">
                         <div><i className="bi bi-calendar3 me-1"></i> {book.issuedDate}</div>
                         <div className={book.status === 'overdue' ? 'text-danger fw-bold' : ''}><i className="bi bi-clock-history me-1"></i> Due {book.dueDate}</div>
                       </td>
-                      <td className="pe-4 text-end"><LibraryStatusBadge status={book.status} /></td>
+                      <td className="pe-4 text-end" data-label="Status"><LibraryStatusBadge status={book.status} /></td>
                     </tr>
                   ))}
                 </tbody>
