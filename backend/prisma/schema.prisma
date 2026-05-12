@@ -73,8 +73,12 @@ model Student {
   attendances     Attendance[]
   boardingLogs    BoardingLog[]
   libraryLogs     LibraryLog[]
+  libraryIssues   LibraryIssue[]
   payments        Payment[]
-  activities      StudentActivity[]
+  feeTransactions    FeeTransaction[]
+  rfidWallet         RFIDWallet?
+  walletTransactions WalletTransaction[]
+  activities         StudentActivity[]
 }
 
 model Attendance {
@@ -185,4 +189,62 @@ model StudentActivity {
   createdAt   DateTime @default(now())
 
   student     Student @relation(fields: [studentId], references: [id])
+}
+
+model Book {
+  id              String   @id @default(cuid())
+  title           String
+  bookCode        String   @unique
+  totalCopies     Int
+  availableCopies Int
+  createdAt       DateTime @default(now())
+
+  issues LibraryIssue[]
+}
+
+model LibraryIssue {
+  id         String   @id @default(cuid())
+  studentId  Int
+  bookId     String
+  status     String
+  issueDate  DateTime
+  dueDate    DateTime
+  createdAt  DateTime @default(now())
+
+  student Student @relation(fields: [studentId], references: [id])
+  book    Book    @relation(fields: [bookId], references: [id])
+}
+
+model FeeTransaction {
+  id          String   @id @default(cuid())
+  studentId   Int
+  description String
+  amount      Float
+  status      String
+  paymentType String
+  createdAt   DateTime @default(now())
+
+  student Student @relation(fields: [studentId], references: [id])
+}
+
+model RFIDWallet {
+  id        String   @id @default(cuid())
+  studentId Int      @unique
+  balance   Float    @default(0.0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  student Student @relation(fields: [studentId], references: [id])
+}
+
+model WalletTransaction {
+  id          String   @id @default(cuid())
+  studentId   Int
+  amount      Float
+  type        String   // CREDIT or DEBIT
+  source      String   // RECHARGE / BUS / CANTEEN / LIBRARY
+  description String?
+  createdAt   DateTime @default(now())
+
+  student Student @relation(fields: [studentId], references: [id])
 }

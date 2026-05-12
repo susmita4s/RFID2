@@ -92,6 +92,17 @@ const Dashboard = ({ onLogout }) => {
     lastLogin: "...",
     schoolName: "EduScan School"
   });
+  
+  const [dashboardStats, setDashboardStats] = useState({
+    totalStudents: 0,
+    attendanceToday: 0,
+    libraryToday: 0,
+    libraryPending: 0,
+    busLoad: 0
+  });
+
+  const [rfidActivity, setRfidActivity] = useState([]);
+  const [libraryActivity, setLibraryActivity] = useState([]);
 
   React.useEffect(() => {
     const fetchUser = async () => {
@@ -120,6 +131,50 @@ const Dashboard = ({ onLogout }) => {
     fetchUser();
   }, []);
 
+  React.useEffect(() => {
+    const fetchDashboardStats = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      try {
+        const response = await fetch(`/api/dashboard/stats?date=${selectedDate}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (response.ok) {
+          const resData = await response.json();
+          if (resData.success) {
+            setDashboardStats(resData.data);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching dashboard stats:", err);
+      }
+    };
+
+    const fetchDashboardActivities = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      try {
+        const response = await fetch('/api/dashboard/activities', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (response.ok) {
+          const resData = await response.json();
+          if (resData.success) {
+            setRfidActivity(resData.data.rfidActivity);
+            setLibraryActivity(resData.data.libraryLogs);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching dashboard activities:", err);
+      }
+    };
+    
+    if (activeTab === 'dashboard') {
+      fetchDashboardStats();
+      fetchDashboardActivities();
+    }
+  }, [selectedDate, activeTab]);
+
   const renderContent = () => {
     const PageHeader = ({ title }) => (
       <div className="d-flex justify-content-between align-items-center mb-4 animate-fade-in">
@@ -142,10 +197,10 @@ const Dashboard = ({ onLogout }) => {
           </div>
 
           <div className="row g-4 mb-5">
-            <StatCard title="Total Students" value="2,847" trend="+12%" icon="people" bg="#e0fcfb" color="#00d9cc" />
-            <StatCard title="Attendance" value="2,651" trend="93.1%" icon="calendar-check" bg="#f3e8ff" color="#a855f7" />
-            <StatCard title="Library Today" value="142" trend="12 Pending" icon="book" bg="#fff1f2" color="#ff4d6d" />
-            <StatCard title="Bus Load" value="1,102" trend="84%" icon="bus-front" bg="#fff7ed" color="#f59e0b" />
+            <StatCard title="Total Students" value={dashboardStats.totalStudents.toLocaleString()} trend="Active" icon="people" bg="#e0fcfb" color="#00d9cc" />
+            <StatCard title="Attendance" value={dashboardStats.attendanceToday.toLocaleString()} trend="Today" icon="calendar-check" bg="#f3e8ff" color="#a855f7" />
+            <StatCard title="Library Today" value={dashboardStats.libraryToday.toLocaleString()} trend={`${dashboardStats.libraryPending} Pending`} icon="book" bg="#fff1f2" color="#ff4d6d" />
+            <StatCard title="Bus Load" value={dashboardStats.busLoad.toLocaleString()} trend="Boarded" icon="bus-front" bg="#fff7ed" color="#f59e0b" />
           </div>
           
           <div className="row g-4 mb-5">
@@ -155,9 +210,21 @@ const Dashboard = ({ onLogout }) => {
                   <h6 className="fw-bold m-0"><i className="bi bi-broadcast text-success me-2"></i>Live RFID Activity</h6>
                   <button onClick={() => setActiveTab('attendance')} className="btn btn-sm btn-outline-primary border-0 fw-bold">View All</button>
                 </div>
-                <ActivityItem name="Arjun Sharma" id="STU-2024-001" type="Entry" time="08:45 AM" img="https://i.pravatar.cc/150?u=11" isActive={true} />
-                <ActivityItem name="Priya Patel" id="STU-2024-042" type="Entry" time="09:12 AM" img="https://i.pravatar.cc/150?u=12" isActive={true} />
-                <ActivityItem name="Rahul Kumar" id="STU-2024-089" type="Exit" time="11:30 AM" img="https://i.pravatar.cc/150?u=13" isActive={false} />
+                {rfidActivity.length > 0 ? (
+                  rfidActivity.map(activity => (
+                    <ActivityItem 
+                      key={activity.id} 
+                      name={activity.studentName} 
+                      id={activity.studentId} 
+                      type={activity.type} 
+                      time={activity.time} 
+                      img={activity.img} 
+                      isActive={activity.isActive} 
+                    />
+                  ))
+                ) : (
+                  <div className="text-center text-muted py-4 small">No recent RFID activity found.</div>
+                )}
               </div>
             </div>
             <div className="col-lg-5">
@@ -166,8 +233,21 @@ const Dashboard = ({ onLogout }) => {
                   <h6 className="fw-bold m-0"><i className="bi bi-journal-bookmark-fill text-danger me-2"></i>Library Logs</h6>
                   <button onClick={() => setActiveTab('library')} className="btn btn-sm btn-outline-danger border-0 fw-bold">Full Log</button>
                 </div>
-                <ActivityItem name="Saira Banu" id="STU-2024-112" type="Borrowed" time="10:15 AM" img="https://i.pravatar.cc/150?u=21" isActive={true} />
-                <ActivityItem name="Kevin Hart" id="STU-2024-901" type="Returned" time="10:45 AM" img="https://i.pravatar.cc/150?u=22" isActive={true} />
+                {libraryActivity.length > 0 ? (
+                  libraryActivity.map(activity => (
+                    <ActivityItem 
+                      key={activity.id} 
+                      name={activity.studentName} 
+                      id={activity.studentId} 
+                      type={activity.type} 
+                      time={activity.time} 
+                      img={activity.img} 
+                      isActive={activity.isActive} 
+                    />
+                  ))
+                ) : (
+                  <div className="text-center text-muted py-4 small">No recent library logs found.</div>
+                )}
               </div>
             </div>
           </div>

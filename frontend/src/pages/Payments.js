@@ -1,19 +1,46 @@
 
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 
 const Payments = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Status");
   const [selectedTxn, setSelectedTxn] = useState(null); // Active Function: Store selected transaction
 
-  const [transactions] = useState([
-    { id: "TXN-001", student: "Arjun Sharma", stuId: "STU-2024-001", type: "Canteen", date: "2024-01-15", amount: "₹150", status: "Completed", method: "RFID Card", balance: "₹1,240" },
-    { id: "TXN-002", student: "Priya Patel", stuId: "STU-2024-042", type: "Library Fine", date: "2024-01-15", amount: "₹20", status: "Completed", method: "RFID Card", balance: "₹450" },
-    { id: "TXN-003", student: "Michael Chen", stuId: "STU-2024-003", type: "Tuition Fee", date: "2024-01-14", amount: "₹12,500", status: "Pending", method: "Bank Transfer", balance: "N/A" },
-    { id: "TXN-004", student: "Sarah Williams", stuId: "STU-2024-002", type: "Bus Fee", date: "2024-01-14", amount: "₹2,400", status: "Completed", method: "RFID Card", balance: "₹890" },
-  ]);
+  const [transactions, setTransactions] = useState([]);
+  const [stats, setStats] = useState({
+    totalCollection: 0,
+    pendingDues: 0,
+    rfidRefills: 0,
+    totalTransactions: 0
+  });
 
+  const fetchData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const headers = { Authorization: `Bearer ${token}` };
+      
+      const statsRes = await fetch('/api/fees/stats', { headers });
+      if (statsRes.ok) {
+        const statsData = await statsRes.json();
+        if (statsData.success) setStats(statsData.data);
+      }
+
+      const txnsRes = await fetch('/api/fees/transactions', { headers });
+      if (txnsRes.ok) {
+        const txnsData = await txnsRes.json();
+        if (txnsData.success) setTransactions(txnsData.data);
+      }
+    } catch (error) {
+      console.error("Error fetching fees data", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
   const filtered = useMemo(() => {
     return transactions.filter(txn => {
       const matchesSearch = txn.student.toLowerCase().includes(searchTerm.toLowerCase()) || txn.stuId.includes(searchTerm);
@@ -57,10 +84,10 @@ const Payments = () => {
 
       {/* Summary Cards */}
       <div className="row g-4 mb-4 d-print-none">
-        <PaymentStat title="Total Collection" value="₹4,85,230" icon="cash-stack" color="#10b981" />
-        <PaymentStat title="Pending Dues" value="₹1,24,580" icon="exclamation-circle" color="#ef4444" />
-        <PaymentStat title="RFID Refills" value="₹45,000" icon="credit-card" color="#3b82f6" />
-        <PaymentStat title="Total Transactions" value="1,842" icon="list-check" color="#8b5cf6" />
+        <PaymentStat title="Total Collection" value={`₹${stats.totalCollection.toLocaleString('en-IN')}`} icon="cash-stack" color="#10b981" />
+        <PaymentStat title="Pending Dues" value={`₹${stats.pendingDues.toLocaleString('en-IN')}`} icon="exclamation-circle" color="#ef4444" />
+        <PaymentStat title="RFID Refills" value={`₹${stats.rfidRefills.toLocaleString('en-IN')}`} icon="credit-card" color="#3b82f6" />
+        <PaymentStat title="Total Transactions" value={stats.totalTransactions.toLocaleString('en-IN')} icon="list-check" color="#8b5cf6" />
       </div>
 
       {/* Filter Section */}
@@ -103,7 +130,7 @@ const Payments = () => {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((txn, i) => (
+            {filtered.length > 0 ? filtered.map((txn, i) => (
               <tr key={i} className="border-bottom">
                 <td className="ps-4 py-3" data-label="Student">
                   <div className="fw-bold small">{txn.student}</div>
@@ -127,7 +154,13 @@ const Payments = () => {
                   </button>
                 </td>
               </tr>
-            ))}
+            )) : (
+              <tr>
+                <td colSpan="5" className="text-center py-5 text-muted small">
+                  No payment records found.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

@@ -1,7 +1,7 @@
 
 
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 
 const Library = () => {
   // ... (Keep all your existing state and handler logic exactly the same)
@@ -14,12 +14,47 @@ const Library = () => {
     studentId: '', bookId: '', studentClass: '10-A',
     issueDate: new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0], librarianName: ''
   });
-  const [booksData, setBooksData] = useState([
-    { id: "BK-PHY-101", title: "Physics for Class 10", student: "Arjun Sharma", stuId: "STU-2024-001", issuedDate: "2024-01-10", dueDate: "2024-01-24", status: "issued" },
-    { id: "BK-MAT-205", title: "Advanced Mathematics", student: "Priya Patel", stuId: "STU-2024-042", issuedDate: "2024-01-05", dueDate: "2024-01-19", status: "overdue" },
-    { id: "BK-ENG-150", title: "English Literature", student: "Rahul Kumar", stuId: "STU-2024-089", issuedDate: "2024-01-12", dueDate: "2024-01-26", status: "issued" },
-    { id: "BK-CHF-089", title: "Chemistry Experiments", student: "Sneha Gupta", stuId: "STU-2024-156", issuedDate: "2024-01-08", dueDate: "2024-01-15", status: "returned" },
-  ]);
+  const [booksData, setBooksData] = useState([]);
+  const [stats, setStats] = useState({
+    totalInventory: 0,
+    activeIssues: 0,
+    overdueItems: 0,
+    processedToday: 0
+  });
+
+  const fetchData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const headers = { Authorization: `Bearer ${token}` };
+      
+      const statsRes = await fetch('/api/library/stats', { headers });
+      if (statsRes.ok) setStats(await statsRes.json());
+
+      const issuesRes = await fetch('/api/library/issues', { headers });
+      if (issuesRes.ok) {
+        const issues = await issuesRes.json();
+        const formatted = issues.map(issue => ({
+          id: issue.book?.bookCode || issue.bookId,
+          title: issue.book?.title || 'Unknown Book',
+          student: issue.student?.fullName || 'Unknown Student',
+          stuId: issue.student?.studentId || issue.studentId,
+          issuedDate: new Date(issue.issueDate).toISOString().split('T')[0],
+          dueDate: new Date(issue.dueDate).toISOString().split('T')[0],
+          status: issue.status,
+          img: issue.student?.profileImage
+        }));
+        setBooksData(formatted);
+      }
+    } catch (error) {
+      console.error("Error fetching library data", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const handleOpenScan = (type) => { setScanType(type); setShowScanModal(true); };
   const processScan = (value) => {
@@ -28,21 +63,41 @@ const Library = () => {
     setShowScanModal(false);
   };
 
-  const handleIssueSubmit = (e) => {
+  const handleIssueSubmit = async (e) => {
     e.preventDefault();
     if (!issueDetails.studentId || !issueDetails.bookId || !issueDetails.librarianName) {
       alert("Please ensure Student ID, Book ID, and Librarian Name are provided!");
       return;
     }
-    const newIssue = {
-      id: issueDetails.bookId, title: "New Issued Book", student: "Recognized Student", 
-      stuId: issueDetails.studentId, issuedDate: issueDetails.issueDate,
-      dueDate: new Date(new Date(issueDetails.issueDate).getTime() + 12096e5 - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0], 
-      status: "issued"
-    };
-    setBooksData([newIssue, ...booksData]);
-    setIssueDetails({ ...issueDetails, studentId: '', bookId: '' }); 
-    alert(`Book Issued Successfully by ${issueDetails.librarianName}!`);
+    
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('/api/library/issue', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          studentId: issueDetails.studentId,
+          bookId: issueDetails.bookId,
+          issueDate: issueDetails.issueDate
+        })
+      });
+      
+      const data = await res.json();
+      if (!res.ok) {
+        alert(`Error: ${data.error}`);
+        return;
+      }
+      
+      alert(`Book Issued Successfully by ${issueDetails.librarianName}!`);
+      setIssueDetails({ ...issueDetails, studentId: '', bookId: '' }); 
+      fetchData(); // Refresh data
+    } catch (error) {
+      console.error("Failed to issue book", error);
+      alert("Failed to issue book");
+    }
   };
 
   const filteredBooks = useMemo(() => {
@@ -77,10 +132,10 @@ const Library = () => {
       </div>
 
       <div className="row g-3 mb-4">
-        <MetricCard title="Total Inventory" value="12,456" icon="book" color="#ff4d6d" bg="#fff1f2" />
-        <MetricCard title="Active Issues" value={booksData.filter(b => b.status !== 'returned').length} icon="journal-check" color="#8b5cf6" bg="#f5f3ff" />
-        <MetricCard title="Overdue Items" value="89" icon="exclamation-circle" color="#f59e0b" bg="#fffbeb" />
-        <MetricCard title="Processed Today" value="45" icon="arrow-repeat" color="#10b981" bg="#ecfdf5" />
+        <MetricCard title="Total Inventory" value={stats.totalInventory.toLocaleString()} icon="book" color="#ff4d6d" bg="#fff1f2" />
+        <MetricCard title="Active Issues" value={stats.activeIssues.toLocaleString()} icon="journal-check" color="#8b5cf6" bg="#f5f3ff" />
+        <MetricCard title="Overdue Items" value={stats.overdueItems.toLocaleString()} icon="exclamation-circle" color="#f59e0b" bg="#fffbeb" />
+        <MetricCard title="Processed Today" value={stats.processedToday.toLocaleString()} icon="arrow-repeat" color="#10b981" bg="#ecfdf5" />
       </div>
 
       <div className="row g-4">
@@ -118,7 +173,7 @@ const Library = () => {
                       <td className="ps-4" data-label="Book Info"><div className="fw-bold small text-dark">{book.title}</div><div className="text-muted smaller" style={{ fontSize: '11px' }}>{book.id}</div></td>
                       <td data-label="Student">
                         <div className="d-flex align-items-center gap-2">
-                          <img src={`https://i.pravatar.cc/150?u=${book.stuId}`} className="rounded-circle border" width="28" alt="" />
+                          <img src={book.img || `https://ui-avatars.com/api/?name=${encodeURIComponent(book.student)}&background=random`} className="rounded-circle border" width="28" alt="" />
                           <div><div className="fw-semibold small">{book.student}</div><div className="text-muted smaller" style={{ fontSize: '10px' }}>{book.stuId}</div></div>
                         </div>
                       </td>
@@ -202,11 +257,23 @@ const Library = () => {
             </div>
             
             <div className="d-flex gap-3 overflow-auto pb-2" style={{scrollbarWidth: 'none', msOverflowStyle: 'none'}}>
-               <HorizontalActivityItem type="Issued" detail="Organic Chemistry" user="Rahul K." time="2m ago" color="primary" />
-               <HorizontalActivityItem type="Returned" detail="World History" user="Sara T." time="15m ago" color="success" />
-               <HorizontalActivityItem type="Overdue" detail="Python 101" user="Aman J." time="1h ago" color="warning" />
-               <HorizontalActivityItem type="Issued" detail="Quantum Physics" user="Vikram S." time="3h ago" color="primary" />
-               <HorizontalActivityItem type="Returned" detail="Macbeth" user="Anjali M." time="5h ago" color="success" />
+               {booksData.slice(0, 10).map((book, i) => {
+                 const typeMap = { 'issued': 'Issued', 'overdue': 'Overdue', 'returned': 'Returned' };
+                 const colorMap = { 'issued': 'primary', 'overdue': 'warning', 'returned': 'success' };
+                 return (
+                   <HorizontalActivityItem 
+                     key={i}
+                     type={typeMap[book.status] || 'Issued'} 
+                     detail={book.title} 
+                     user={book.student.split(' ')[0] + ' ' + (book.student.split(' ')[1] ? book.student.split(' ')[1][0] + '.' : '')} 
+                     time={book.issuedDate} 
+                     color={colorMap[book.status] || 'primary'} 
+                   />
+                 )
+               })}
+               {booksData.length === 0 && (
+                 <div className="text-muted small py-3 px-2">No live activity found.</div>
+               )}
             </div>
           </div>
         </div>

@@ -56,6 +56,14 @@ app.get('/api/health', async (req, res) => {
 const authRoutes = require('./routes/auth');
 app.use('/api/auth', authRoutes);
 
+// ─── Dashboard Routes ─────────────────────────────────────────────────────────
+const dashboardRoutes = require('./routes/dashboard');
+app.use('/api/dashboard', dashboardRoutes);
+
+// ─── Fees Routes ──────────────────────────────────────────────────────────────
+const feesRoutes = require('./routes/fees');
+app.use('/api/fees', feesRoutes);
+
 // ─── Student Routes ───────────────────────────────────────────────────────────
 const studentRoutes = require('./routes/students');
 app.use('/api/students', studentRoutes);
