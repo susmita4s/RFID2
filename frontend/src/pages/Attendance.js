@@ -169,7 +169,7 @@ const Attendance = () => {
               {attendanceData.map((student) => (
                 <div key={student.dbId} className="list-group-item border-bottom px-4 py-3 d-flex align-items-center hover-row">
                   {/* Student Info */}
-                  <div className="d-flex align-items-center gap-3" style={{ flex: '2.5' }}>
+                  <div className="d-flex align-items-center gap-3" style={{ flex: '2.5' }} data-label="Student">
                     <div className="position-relative">
                         <img src={`https://i.pravatar.cc/150?u=${student.dbId}`} className="rounded-circle border" style={{ width: '42px', height: '42px', objectFit: 'cover' }} alt="" />
                         <div className={`position-absolute bottom-0 end-0 rounded-circle border border-white ${student.rfidEnabled ? 'bg-success' : 'bg-secondary'}`} style={{width: '12px', height: '12px'}}></div>
@@ -181,7 +181,7 @@ const Attendance = () => {
                   </div>
                   
                   {/* Scan Toggle */}
-                  <div style={{ flex: '1' }} className="d-flex justify-content-center">
+                  <div style={{ flex: '1' }} className="d-flex justify-content-center" data-label="RFID Scan">
                     <div className="form-check form-switch custom-switch">
                       <input 
                         className="form-check-input shadow-none" 
@@ -194,25 +194,26 @@ const Attendance = () => {
                   </div>
 
                   {/* Times */}
-                  <div style={{ flex: '1.5' }} className="text-center">
+                  <div style={{ flex: '1.5' }} className="text-center" data-label="Check In/Out">
                     <div className="small fw-semibold text-secondary">
                         {student.checkIn} <span className="text-muted px-1">•</span> {student.checkOut}
                     </div>
                   </div>
 
                   {/* Status */}
-                  <div style={{ flex: '1' }} className="text-center">
+                  <div style={{ flex: '1' }} className="text-center" data-label="Status">
                     <StatusBadge status={student.status} />
                   </div>
                   
                   {/* Actions Area */}
-                  <div style={{ flex: '0.5' }} className="position-relative text-end">
+                  <div style={{ flex: '0.5' }} className="position-relative text-end" data-label="Action">
                     <button 
                       className={`btn btn-sm rounded-3 border-0 transition-all ${activeMenu === student.dbId ? 'btn-secondary text-white' : 'btn-light text-muted'}`}
                       onClick={(e) => { e.stopPropagation(); setActiveMenu(activeMenu === student.dbId ? null : student.dbId); }}
                     >
                       <i className={`bi ${activeMenu === student.dbId ? 'bi-x-lg' : 'bi-three-dots'}`}></i>
                     </button>
+
                     
                     {activeMenu === student.dbId && (
                       <div className="position-absolute end-0 mt-2 py-2 bg-white shadow-lg rounded-3 border" style={{ zIndex: 1000, minWidth: '180px' }}>

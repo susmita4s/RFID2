@@ -410,7 +410,7 @@ const Students = () => {
               ) : (
                 students.map((student) => (
                   <tr key={student.id}>
-                    <td className="ps-4 py-3">
+                    <td className="ps-4 py-3" data-label="Student">
                       <div className="d-flex align-items-center gap-3">
                         <img src={student.profileImage || `https://ui-avatars.com/api/?name=${student.fullName}&background=random`} className="rounded-circle border" style={{width: 38, height: 38, objectFit: 'cover'}} alt="" />
                         <div>
@@ -419,14 +419,14 @@ const Students = () => {
                         </div>
                       </div>
                     </td>
-                    <td>
+                    <td data-label="RFID Tag">
                       {student.rfidTag ? 
                         <code className="bg-primary-subtle text-primary px-2 py-1 rounded small fw-bold">{student.rfidTag}</code> : 
                         <span className="text-muted small">Not Assigned</span>
                       }
                     </td>
-                    <td className="small text-muted">{formatDate(student.joinedDate)}</td>
-                    <td>
+                    <td className="small text-muted" data-label="Joined Date">{formatDate(student.joinedDate)}</td>
+                    <td data-label="Status">
                       <span className={`badge rounded-pill ${student.status === 'active' ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger'}`}>
                         ● {student.status}
                       </span>
