@@ -47,13 +47,14 @@ import Dashboard from './pages/Dashboard';
 import ParentPortal from './pages/ParentPortal';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
+import LandingPage from './LandingPage';
 // Ensure your CSS is imported here
 import './Login.css'; 
 import './Responsive.css'; 
 
 const App = () => {
   const [userRole, setUserRole] = useState(null);
-  const [page, setPage] = useState('login');
+  const [page, setPage] = useState('landing');
   const [registerRole, setRegisterRole] = useState('parent');
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   
@@ -134,7 +135,9 @@ const App = () => {
         {theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode'}
       </button>
 
-      {userRole === 'admin' ? (
+      {page === 'landing' ? (
+        <LandingPage onStart={() => setPage('login')} />
+      ) : userRole === 'admin' ? (
         <Dashboard onLogout={handleLogout} />
       ) : userRole === 'parent' ? (
         <ParentPortal onLogout={handleLogout} />
