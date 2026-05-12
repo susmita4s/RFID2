@@ -1,5 +1,5 @@
-require("dotenv").config();
 const express = require('express');
+require("./db");
 const cors = require('cors');
 const dotenv = require('dotenv');
 const { PrismaClient } = require('@prisma/client');
