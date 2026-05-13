@@ -54,12 +54,18 @@ const Students = () => {
     }
   };
 
+  // Ensure students are fetched directly from backend on page load
+  useEffect(() => {
+    fetchStudents();
+  }, []);
+
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
       fetchStudents();
     }, 300);
     return () => clearTimeout(delayDebounceFn);
   }, [searchQuery, filterClass, filterDate]);
+
 
   const generateRFID = async () => {
     try {

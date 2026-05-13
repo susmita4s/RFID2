@@ -58,6 +58,9 @@ router.post('/register', async (req, res) => {
     // 5. Duplicate email check
     const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (existing) {
+      if (role === 'administrator' || role === 'admin' || existing.role === 'admin') {
+        return res.status(409).json({ success: false, message: 'Admin already exists.' });
+      }
       return res.status(409).json({ success: false, message: 'Email already registered.' });
     }
 
@@ -65,19 +68,21 @@ router.post('/register', async (req, res) => {
     const hashed = await bcrypt.hash(password, 10);
     const userRole = role ? role.toLowerCase() : 'parent';
 
-    // Admin validation for one admin per school
+    // Admin validation: One Admin per School
     if (userRole === 'admin') {
       if (!schoolName) {
         return res.status(400).json({ success: false, message: 'School name is required for admin registration.' });
       }
-      
+
       const existingSchool = await prisma.school.findUnique({
-        where: { name: schoolName },
-        include: { admin: true }
+        where: { name: schoolName }
       });
       
-      if (existingSchool && existingSchool.admin) {
-        return res.status(400).json({ success: false, message: 'Admin already exists for this school' });
+      if (existingSchool) {
+        return res.status(403).json({ 
+          success: false, 
+          message: 'School already exists.' 
+        });
       }
     }
 

@@ -1,5 +1,5 @@
-require("dotenv").config();
 const express = require('express');
+require("./db");
 const cors = require('cors');
 const dotenv = require('dotenv');
 const { PrismaClient } = require('@prisma/client');
@@ -55,6 +55,14 @@ app.get('/api/health', async (req, res) => {
 // ─── Auth Routes ─────────────────────────────────────────────────────────────
 const authRoutes = require('./routes/auth');
 app.use('/api/auth', authRoutes);
+
+// ─── Dashboard Routes ─────────────────────────────────────────────────────────
+const dashboardRoutes = require('./routes/dashboard');
+app.use('/api/dashboard', dashboardRoutes);
+
+// ─── Fees Routes ──────────────────────────────────────────────────────────────
+const feesRoutes = require('./routes/fees');
+app.use('/api/fees', feesRoutes);
 
 // ─── Student Routes ───────────────────────────────────────────────────────────
 const studentRoutes = require('./routes/students');
