@@ -16,9 +16,10 @@ const Students = () => {
   const [selectedProfile, setSelectedProfile] = useState(null);
   const [selectedActivity, setSelectedActivity] = useState(null);
   const [confirmToggle, setConfirmToggle] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null);
   
   const [newStudent, setNewStudent] = useState({
-    fullName: '', gender: '', rfidTag: '', className: '', email: '', phoneNumber: '', guardianName: '', joinedDate: ''
+    fullName: '', gender: '', rfidTag: '', className: '', email: '', phoneNumber: '', guardianName: '', joinedDate: '', profileImage: null
   });
   const [isOtherGender, setIsOtherGender] = useState(false);
 
@@ -87,19 +88,25 @@ const Students = () => {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
+      const formData = new FormData();
+      Object.keys(newStudent).forEach(key => {
+        if (newStudent[key] !== null) {
+          formData.append(key, newStudent[key]);
+        }
+      });
+
       const response = await fetch('/api/students/create', {
         method: 'POST',
         headers: { 
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(newStudent)
+        body: formData
       });
       
       const data = await response.json();
       if (data.success) {
         setShowAddModal(false);
-        setNewStudent({ fullName: '', gender: '', rfidTag: '', className: '', email: '', phoneNumber: '', guardianName: '', joinedDate: '' });
+        setNewStudent({ fullName: '', gender: '', rfidTag: '', className: '', email: '', phoneNumber: '', guardianName: '', joinedDate: '', profileImage: null });
         setIsOtherGender(false);
         fetchStudents();
       } else {
@@ -132,6 +139,23 @@ const Students = () => {
     } finally {
       setConfirmToggle(null);
       setActiveMenu(null);
+    }
+  };
+
+  const handleDeleteStudent = async (studentId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/students/${studentId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        setConfirmDelete(null);
+        setSelectedProfile(null);
+        fetchStudents();
+      }
+    } catch (error) {
+      console.error('Error deleting student:', error);
     }
   };
 
@@ -237,6 +261,25 @@ const Students = () => {
                   <label className="form-label small fw-bold">Joined Date</label>
                   <input type="date" className="form-control" required value={newStudent.joinedDate} onChange={e => setNewStudent({...newStudent, joinedDate: e.target.value})} />
                 </div>
+                <div className="col-md-12">
+                  <label className="form-label small fw-bold">Profile Image</label>
+                  <input 
+                    type="file" 
+                    className="form-control" 
+                    accept="image/*"
+                    onChange={e => setNewStudent({...newStudent, profileImage: e.target.files[0]})} 
+                  />
+                  {newStudent.profileImage && (
+                    <div className="mt-2">
+                      <img 
+                        src={URL.createObjectURL(newStudent.profileImage)} 
+                        alt="Preview" 
+                        className="rounded border" 
+                        style={{ width: '50px', height: '50px', objectFit: 'cover' }} 
+                      />
+                    </div>
+                  )}
+                </div>
                 <div className="col-12">
                   <label className="form-label small fw-bold">RFID Assignment</label>
                   <div className="input-group">
@@ -296,7 +339,7 @@ const Students = () => {
       {/* --- Student Profile Info Modal --- */}
       {selectedProfile && (
         <div className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" style={{ zIndex: 1100, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}>
-          <div className="bg-white rounded-4 shadow-lg overflow-hidden animate-fade-in" style={{ width: '95%', maxWidth: '550px' }}>
+          <div className="bg-white rounded-4 shadow-lg overflow-hidden animate-fade-in profile-modal-content" style={{ width: '95%', maxWidth: '550px' }}>
             <div className="text-center p-4 text-white" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)' }}>
               <div className="d-flex justify-content-between mb-2">
                 <span className={`badge ${selectedProfile.status === 'active' ? 'bg-success' : 'bg-danger'}`}>{selectedProfile.status.toUpperCase()}</span>
@@ -339,9 +382,27 @@ const Students = () => {
                 </div>
                 
                 <div className="d-grid gap-2">
-                  <button className="btn btn-outline-dark py-2 rounded-3 fw-bold" onClick={() => window.print()}>Print Profile Summary</button>
-                  <button className="btn btn-dark py-2 rounded-3 fw-bold" onClick={() => setSelectedProfile(null)}>Close</button>
+                  <button className="btn btn-outline-dark py-2 rounded-3 fw-bold no-print" onClick={() => window.print()}>Print Profile Summary</button>
+                  <button className="btn btn-danger py-2 rounded-3 fw-bold no-print" onClick={() => setConfirmDelete(selectedProfile)}>Delete Student</button>
+                  <button className="btn btn-dark py-2 rounded-3 fw-bold no-print" onClick={() => setSelectedProfile(null)}>Close</button>
                 </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- Confirmation for Delete --- */}
+      {confirmDelete && (
+        <div className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" style={{ zIndex: 2000, background: 'rgba(0,0,0,0.2)', backdropFilter: 'blur(2px)' }}>
+          <div className="bg-white p-4 rounded-4 shadow-lg text-center border" style={{ maxWidth: '320px' }}>
+            <div className="display-6 mb-3 text-danger">
+                <i className="bi bi-exclamation-triangle-fill"></i>
+            </div>
+            <h6 className="fw-bold mb-3">Delete Student</h6>
+            <p className="small text-muted mb-4">Are you sure you want to delete <strong>{confirmDelete.fullName}</strong>? This action cannot be undone.</p>
+            <div className="d-flex gap-2">
+              <button className="btn btn-sm btn-danger flex-grow-1" onClick={() => handleDeleteStudent(confirmDelete.id)}>Delete</button>
+              <button className="btn btn-sm btn-light flex-grow-1 border" onClick={() => setConfirmDelete(null)}>Cancel</button>
             </div>
           </div>
         </div>
@@ -481,6 +542,25 @@ const Students = () => {
         .dropdown-item:hover { background-color: #f8fafc; cursor: pointer; }
         .small-text { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 2px; }
         .bg-emerald { background-color: #10b981 !important; }
+        
+        @media print {
+          body { background: white !important; margin: 0; padding: 0; }
+          .no-print, .btn-close, .modal-backdrop, [style*="background: rgba(0,0,0,0.6)"] { display: none !important; }
+          body * { visibility: hidden; }
+          .profile-modal-content, .profile-modal-content * { visibility: visible; }
+          .profile-modal-content { 
+            visibility: visible;
+            position: absolute; 
+            left: 50%; 
+            top: 20px; 
+            transform: translateX(-50%);
+            width: 90%; 
+            max-width: 800px;
+            border: 1px solid #eee !important; 
+            box-shadow: none !important;
+            margin: 0 auto;
+          }
+        }
       `}</style>
     </div>
   );

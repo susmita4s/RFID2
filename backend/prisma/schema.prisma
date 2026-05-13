@@ -92,7 +92,7 @@ model Attendance {
   updatedAt   DateTime @default(now()) @updatedAt
 
   studentId   Int
-  student     Student  @relation(fields: [studentId], references: [id])
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   adminId     Int?
   admin       User?    @relation("AdminAttendances", fields: [adminId], references: [id])
@@ -154,7 +154,7 @@ model LibraryLog {
   fine       Float    @default(0)
 
   studentId  Int
-  student    Student  @relation(fields: [studentId], references: [id])
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
 }
 
 model Payment {
@@ -168,7 +168,7 @@ model Payment {
   createdAt   DateTime @default(now())
 
   studentId   Int
-  student     Student  @relation(fields: [studentId], references: [id])
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
 }
 
 model Session {
@@ -188,7 +188,7 @@ model StudentActivity {
   description String
   createdAt   DateTime @default(now())
 
-  student     Student @relation(fields: [studentId], references: [id])
+  student     Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
 }
 
 model Book {
@@ -211,7 +211,7 @@ model LibraryIssue {
   dueDate    DateTime
   createdAt  DateTime @default(now())
 
-  student Student @relation(fields: [studentId], references: [id])
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
   book    Book    @relation(fields: [bookId], references: [id])
 }
 
@@ -224,7 +224,7 @@ model FeeTransaction {
   paymentType String
   createdAt   DateTime @default(now())
 
-  student Student @relation(fields: [studentId], references: [id])
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
 }
 
 model RFIDWallet {
@@ -234,7 +234,7 @@ model RFIDWallet {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  student Student @relation(fields: [studentId], references: [id])
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
 }
 
 model WalletTransaction {
@@ -246,5 +246,5 @@ model WalletTransaction {
   description String?
   createdAt   DateTime @default(now())
 
-  student Student @relation(fields: [studentId], references: [id])
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
 }

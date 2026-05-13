@@ -155,6 +155,9 @@ router.get('/issues', verifyToken, async (req, res) => {
     });
 
     const issues = await prisma.libraryIssue.findMany({
+      where: {
+        student: { isActive: true }
+      },
       include: {
         student: { select: { fullName: true, studentId: true, profileImage: true } },
         book: { select: { title: true, bookCode: true } }

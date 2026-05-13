@@ -40,7 +40,10 @@ router.get('/boarding-activity', verifyToken, async (req, res) => {
     today.setHours(0, 0, 0, 0);
     
     const logs = await prisma.boardingLog.findMany({
-      where: { boardedAt: { gte: today } },
+      where: { 
+        boardedAt: { gte: today },
+        student: { isActive: true }
+      },
       include: {
         student: { select: { fullName: true, studentId: true, rollNumber: true, phoneNumber: true } },
         bus: { select: { busNumber: true } }

@@ -28,7 +28,7 @@ router.get('/stats', verifyToken, async (req, res) => {
     
     // Total Students
     const totalStudents = await prisma.student.count({
-      where: adminFilter
+      where: { ...adminFilter, isActive: true }
     });
 
     // Attendance Today
@@ -96,7 +96,10 @@ router.get('/activities', verifyToken, async (req, res) => {
 
     // Fetch latest 5 RFID activities
     const rfidLogs = await prisma.attendance.findMany({
-      where: adminFilter,
+      where: {
+        ...adminFilter,
+        student: { isActive: true }
+      },
       orderBy: { updatedAt: 'desc' },
       take: 5,
       include: {
@@ -126,7 +129,12 @@ router.get('/activities', verifyToken, async (req, res) => {
 
     // Fetch latest 5 Library logs
     const libraryLogs = await prisma.libraryLog.findMany({
-      where: { student: adminFilter },
+      where: { 
+        student: { 
+          ...adminFilter,
+          isActive: true 
+        } 
+      },
       orderBy: { id: 'desc' },
       take: 5,
       include: {

@@ -51,6 +51,9 @@ router.get('/stats', verifyToken, async (req, res) => {
 router.get('/transactions', verifyToken, async (req, res) => {
   try {
     const transactions = await prisma.feeTransaction.findMany({
+      where: {
+        student: { isActive: true }
+      },
       include: {
         student: { select: { fullName: true, studentId: true, profileImage: true, rfidWallet: true } }
       },
