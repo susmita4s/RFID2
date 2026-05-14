@@ -51,7 +51,7 @@ import LandingPage from './LandingPage';
 // Ensure your CSS is imported here
 import './Login.css'; 
 import './Responsive.css'; 
-
+import { Sun, MoonFill } from 'react-bootstrap-icons';
 const App = () => {
   const [userRole, setUserRole] = useState(null);
   const [page, setPage] = useState('landing');
@@ -126,27 +126,18 @@ const App = () => {
     // The data-theme attribute here triggers the CSS variables in your Login.css
     <div data-theme={theme} className="app-container">
       
-      {/* Floating Theme Toggle Button */}
-      <button 
-        className="theme-switch-btn" 
-        onClick={toggleTheme}
-        style={{ cursor: 'pointer' }}
-      >
-        {theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode'}
-      </button>
-
       {page === 'landing' ? (
         <LandingPage onStart={() => setPage('login')} />
       ) : userRole === 'admin' ? (
-        <Dashboard onLogout={handleLogout} />
+        <Dashboard onLogout={handleLogout} theme={theme} toggleTheme={toggleTheme} />
       ) : userRole === 'parent' ? (
-        <ParentPortal onLogout={handleLogout} />
+        <ParentPortal onLogout={handleLogout} theme={theme} toggleTheme={toggleTheme} />
       ) : page === 'register' ? (
         <Register setPage={setPage} role={registerRole} onLogin={handleLogin} />
       ) : page === 'forgot-password' ? (
         <ForgotPassword setPage={setPage} />
       ) : (
-        <Auth onLogin={handleLogin} setPage={setPage} setRegisterRole={setRegisterRole} />
+        <Auth onLogin={handleLogin} setPage={setPage} setRegisterRole={setRegisterRole} theme={theme} toggleTheme={toggleTheme} />
       )}
     </div>
   );

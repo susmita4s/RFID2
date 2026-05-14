@@ -467,20 +467,28 @@ const Students = () => {
       </div>
 
       <style>{`
-        .students-container { background-color: #f8fafc; min-height: 100vh; padding: 2rem; }
+        .students-container { padding: 0.5rem 0; transition: all 0.3s ease; }
         .btn-dark { background-color: #0f172a !important; border: none; transition: all 0.3s ease; }
         .btn-dark:hover { background-color: #1e293b !important; transform: translateY(-1px); }
-        .text-primary { color: #10b981 !important; }
-        .bg-primary-subtle { background-color: #ecfdf5 !important; color: #059669 !important; }
-        .table thead th { background-color: #f1f5f9; color: #64748b; font-weight: 600; }
-        .section-card { border: 1px solid #e2e8f0 !important; }
-        .bg-success { background-color: #10b981 !important; }
-        .bg-success-subtle { background-color: #d1fae5 !important; color: #065f46 !important; }
-        .bg-danger-subtle { background-color: #fee2e2 !important; color: #991b1b !important; }
-        .search-input { border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.5rem 1rem 0.5rem 2.5rem; }
-        .dropdown-item:hover { background-color: #f8fafc; cursor: pointer; }
+        .text-primary { color: var(--accent-cyan) !important; }
+        .bg-primary-subtle { background-color: rgba(0, 217, 204, 0.1) !important; color: var(--accent-cyan) !important; }
+        
+        .table thead th { background-color: var(--border-color); color: var(--text-muted); font-weight: 600; border: none; }
+        .table { color: var(--text-main); }
+        .table-hover tbody tr:hover { background-color: rgba(0,0,0,0.02); }
+        [data-theme='dark'] .table-hover tbody tr:hover { background-color: rgba(255,255,255,0.02); }
+        
+        .section-card { background: var(--card-bg) !important; border: 1px solid var(--border-color) !important; }
+        .bg-success-subtle { background-color: rgba(16, 185, 129, 0.1) !important; color: #10b981 !important; }
+        .bg-danger-subtle { background-color: rgba(239, 68, 68, 0.1) !important; color: #ef4444 !important; }
+        
+        .search-input { background: var(--input-bg); border: 1px solid var(--input-border); color: var(--text-main); }
+        .form-control, .form-select { background-color: var(--input-bg); border-color: var(--input-border); color: var(--text-main); }
+        .form-control:focus, .form-select:focus { background-color: var(--input-bg); color: var(--text-main); border-color: var(--accent-cyan); box-shadow: 0 0 0 0.25rem rgba(0, 217, 204, 0.1); }
+        
+        .modal-content-custom { background: var(--card-bg); color: var(--text-main); border: 1px solid var(--border-color); }
+        .dropdown-menu-custom { background: var(--card-bg); border: 1px solid var(--border-color); box-shadow: var(--card-shadow); }
         .small-text { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 2px; }
-        .bg-emerald { background-color: #10b981 !important; }
       `}</style>
     </div>
   );

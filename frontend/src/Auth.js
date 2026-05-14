@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './Login.css';
-import { ShieldLock, Wifi, Grid, Person, XCircleFill, Eye, EyeSlash } from 'react-bootstrap-icons';
+import { ShieldLock, Wifi, Grid, Person, XCircleFill, Eye, EyeSlash, Sun, MoonFill } from 'react-bootstrap-icons';
 
-const Auth = ({ onLogin, setPage, setRegisterRole }) => {
+const Auth = ({ onLogin, setPage, setRegisterRole, theme, toggleTheme }) => {
     const [role, setRole] = useState('administrator');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -75,6 +75,15 @@ const Auth = ({ onLogin, setPage, setRegisterRole }) => {
 
     return (
         <div className="container-fluid vh-100 p-0 overflow-hidden position-relative">
+            {/* Theme Toggle Switch - Top Right */}
+            <div className="position-absolute" style={{ top: '25px', right: '25px', zIndex: 1100 }}>
+                <div className="theme-toggle-wrapper-auth d-flex align-items-center gap-2" onClick={toggleTheme} style={{ cursor: 'pointer', background: 'rgba(255,255,255,0.05)', padding: '6px 12px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }}>
+                    {theme === 'dark' ? <MoonFill size={14} className="text-info" /> : <Sun size={14} className="text-warning" />}
+                    <div className={`theme-switch ${theme === 'dark' ? 'active' : ''}`} style={{ width: '36px', height: '20px', background: 'rgba(255,255,255,0.2)', borderRadius: '10px', position: 'relative', transition: '0.3s' }}>
+                        <div style={{ position: 'absolute', width: '16px', height: '16px', background: 'white', borderRadius: '50%', top: '2px', left: theme === 'dark' ? '18px' : '2px', transition: '0.3s' }}></div>
+                    </div>
+                </div>
+            </div>
             
             {/* Feature Popup Modal */}
             {activeFeature && (
