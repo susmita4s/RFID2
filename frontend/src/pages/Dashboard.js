@@ -18,6 +18,7 @@ const dashStyles = `
     --text-main: #1e293b;
     --text-muted: #64748b;
     --card-bg: #ffffff;
+    --light-bg: #f1f5f9;
     --card-shadow: 0 4px 25px rgba(0, 0, 0, 0.06);
     --border-color: #f1f5f9;
     --input-bg: #ffffff;
@@ -30,6 +31,7 @@ const dashStyles = `
     --text-main: #f8fafc;
     --text-muted: #94a3b8;
     --card-bg: #1e293b;
+    --light-bg: #334155;
     --card-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
     --border-color: #334155;
     --input-bg: #1e293b;
@@ -54,6 +56,12 @@ const dashStyles = `
   .nav-item { display: flex; align-items: center; gap: 14px; padding: 12px 16px; color: #9ca3af; text-decoration: none; border-radius: 12px; margin-bottom: 6px; cursor: pointer; transition: 0.2s; font-weight: 500; white-space: nowrap; border: none; background: transparent; width: 100%; text-align: left; }
   .nav-item:hover { color: white; background: rgba(255,255,255,0.05); }
   .nav-item.active { background: rgba(0, 217, 204, 0.1); color: var(--accent-cyan); }
+  
+  /* OVERRIDE BOOTSTRAP TEXT COLORS FOR THEME SUPPORT */
+  .dashboard-container .text-muted { color: var(--text-muted) !important; }
+  .dashboard-container .text-dark { color: var(--text-main) !important; }
+  .dashboard-container .bg-light { background-color: var(--light-bg) !important; }
+  .dashboard-container .bg-white { background-color: var(--card-bg) !important; border-color: var(--border-color) !important; }
   
   .main-content { flex: 1; overflow-y: auto; padding: 30px 40px; position: relative; transition: background-color 0.3s ease; }
   .animate-fade-in { animation: fadeIn 0.4s ease-out; }

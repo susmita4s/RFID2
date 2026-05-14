@@ -80,3 +80,41 @@ code {
 .vh-100 {
   height: 100vh;
 }
+
+/* Global Theme Variables */
+:root {
+  --text-main: #1e293b;
+  --text-muted: #64748b;
+  --bg-main: #f8fafc;
+  --card-bg: #ffffff;
+  --light-bg: #f1f5f9;
+  --border-color: #f1f5f9;
+}
+
+[data-theme='dark'] {
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --bg-main: #0f172a;
+  --card-bg: #1e293b;
+  --light-bg: #334155;
+  --border-color: #334155;
+}
+
+/* Global Bootstrap overrides based on theme */
+[data-theme='light'] .text-muted, [data-theme='dark'] .text-muted { color: var(--text-muted) !important; }
+[data-theme='light'] .text-dark, [data-theme='dark'] .text-dark { color: var(--text-main) !important; }
+[data-theme='light'] .text-black, [data-theme='dark'] .text-black { color: var(--text-main) !important; }
+
+[data-theme='light'] .bg-light, [data-theme='dark'] .bg-light { background-color: var(--light-bg) !important; border-color: var(--border-color) !important; }
+[data-theme='light'] .bg-white, [data-theme='dark'] .bg-white { background-color: var(--card-bg) !important; border-color: var(--border-color) !important; }
+[data-theme='light'] .bg-dark, [data-theme='dark'] .bg-dark { background-color: var(--bg-main) !important; border-color: var(--border-color) !important; }
+
+/* Components */
+[data-theme='light'] .card, [data-theme='dark'] .card { background-color: var(--card-bg) !important; border-color: var(--border-color) !important; color: var(--text-main); }
+[data-theme='light'] .list-group-item, [data-theme='dark'] .list-group-item { background-color: var(--card-bg) !important; border-color: var(--border-color) !important; color: var(--text-main); }
+[data-theme='light'] .form-control, [data-theme='dark'] .form-control { background-color: var(--light-bg) !important; border-color: var(--border-color) !important; color: var(--text-main) !important; }
+[data-theme='light'] .form-select, [data-theme='dark'] .form-select { background-color: var(--light-bg) !important; border-color: var(--border-color) !important; color: var(--text-main) !important; }
+[data-theme='light'] .input-group-text, [data-theme='dark'] .input-group-text { background-color: var(--light-bg) !important; border-color: var(--border-color) !important; color: var(--text-muted) !important; }
+[data-theme='light'] .modal-content, [data-theme='dark'] .modal-content { background-color: var(--card-bg) !important; border-color: var(--border-color) !important; color: var(--text-main); }
+[data-theme='light'] th, [data-theme='dark'] th, [data-theme='light'] td, [data-theme='dark'] td { background-color: var(--card-bg) !important; border-color: var(--border-color) !important; color: var(--text-main) !important; }
+[data-theme='light'] table, [data-theme='dark'] table { color: var(--text-main) !important; }
