@@ -21,7 +21,7 @@ router.get('/', verifyToken, async (req, res) => {
     const { date, search, class: cls } = req.query;
     const { startOfDay, endOfDay } = getLocalDateBounds(date);
 
-    const where = {};
+    const where = { isActive: true };
     if (cls && cls !== 'All Classes') where.className = cls;
     if (search) {
       where.OR = [

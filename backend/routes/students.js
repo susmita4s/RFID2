@@ -2,6 +2,9 @@ const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 const { verifyToken } = require('./auth');
 const { parseISO, startOfDay, addMinutes } = require('date-fns');
+const multer = require('multer');
+const { storage } = require('../cloudinary');
+const upload = multer({ storage });
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -73,8 +76,9 @@ router.get('/:id', verifyToken, async (req, res) => {
 });
 
 // ── POST /api/students/create ─────────────────────────────────────────────────
-router.post('/create', verifyToken, async (req, res) => {
+router.post('/create', verifyToken, upload.single('profileImage'), async (req, res) => {
   const { fullName, email, phoneNumber, gender, className, guardianName, rfidTag, joinedDate } = req.body;
+  const profileImage = req.file ? req.file.path : null;
 
   if (!fullName || !email || !phoneNumber || !className) {
     return res.status(400).json({ success: false, message: 'Missing required fields' });
@@ -106,7 +110,8 @@ router.post('/create', verifyToken, async (req, res) => {
           joinedDate: localJoinedDate,
           rollNumber,
           adminId: req.user.id,
-          status: 'active'
+          status: 'active',
+          profileImage
         }
       });
 
@@ -142,7 +147,7 @@ router.post('/create', verifyToken, async (req, res) => {
 });
 
 // ── PUT /api/students/:id ─────────────────────────────────────────────────────
-router.put('/:id', verifyToken, async (req, res) => {
+router.put('/:id', verifyToken, upload.single('profileImage'), async (req, res) => {
   try {
     const studentId = Number(req.params.id);
     const existing = await prisma.student.findUnique({ where: { id: studentId } });
@@ -151,10 +156,15 @@ router.put('/:id', verifyToken, async (req, res) => {
        return res.status(404).json({ success: false, message: 'Student not found.' });
     }
 
+    const data = { ...req.body };
+    if (req.file) {
+      data.profileImage = req.file.path;
+    }
+
     const updated = await prisma.$transaction(async (tx) => {
       const stu = await tx.student.update({
         where: { id: studentId },
-        data: req.body,
+        data,
       });
 
       await tx.studentActivity.create({
@@ -217,12 +227,11 @@ router.delete('/:id', verifyToken, async (req, res) => {
        return res.status(404).json({ success: false, message: 'Student not found.' });
     }
 
-    await prisma.student.update({
-      where: { id: studentId },
-      data: { isActive: false, status: 'inactive' }
+    await prisma.student.delete({
+      where: { id: studentId }
     });
 
-    res.json({ success: true, message: 'Student deleted successfully.' });
+    res.json({ success: true, message: 'Student deleted permanently from database.' });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to delete student.' });
   }
