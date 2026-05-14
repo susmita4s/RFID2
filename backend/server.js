@@ -12,7 +12,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:3000',
     credentials: true
   }
 });
@@ -31,7 +31,7 @@ io.on('connection', (socket) => {
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:3000',
   credentials: true,
 }));
 app.use(express.json());
@@ -66,10 +66,12 @@ app.use('/api/fees', feesRoutes);
 
 // ─── Student Routes ───────────────────────────────────────────────────────────
 const studentRoutes = require('./routes/students');
-app.use('/api/students', studentRoutes);
-
-// ─── Attendance Routes ────────────────────────────────────────────────────────
+const paymentRoutes = require('./routes/payments');
+const walletRoutes = require('./routes/wallet');
 const attendanceRoutes = require('./routes/attendance');
+app.use('/api/students', studentRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/wallet', walletRoutes);
 app.use('/api/attendance', attendanceRoutes);
 
 // ─── Bus Routes ───────────────────────────────────────────────────────────────
@@ -80,13 +82,14 @@ app.use('/api/bus', busRoutes);
 const libraryRoutes = require('./routes/library');
 app.use('/api/library', libraryRoutes);
 
-// ─── Payment Routes ───────────────────────────────────────────────────────────
-const paymentRoutes = require('./routes/payments');
-app.use('/api/payments', paymentRoutes);
-
 // ─── RFID Routes ──────────────────────────────────────────────────────────────
 const rfidRoutes = require('./routes/rfid');
 app.use('/api/rfid', rfidRoutes);
+
+// ─── Parent Activation Routes ─────────────────────────────────────────────────
+const parentsRoutes = require('./routes/parents');
+app.use('/api/parents', parentsRoutes);
+
 
 // ─── 404 Handler ─────────────────────────────────────────────────────────────
 app.use((req, res) => {

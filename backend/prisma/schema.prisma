@@ -15,15 +15,21 @@ model User {
   firstName String?
   lastName  String?
   email     String   @unique
-  password  String
+  password  String   @default("")
   phone     String?
   role      String   @default("user") // "admin" | "user" | "parent"
   rfidTag         String?   @unique
-  isVerified      Boolean   @default(true) // Admins are true by default, Parents will be false initially
+  isVerified      Boolean   @default(true) // Admins are true by default, Parents will be false until they set password
   registrationOtp String?
   otpExpiry       DateTime?
   resetPasswordOtp String?
   resetPasswordExpiry DateTime?
+  // ── Secure Parent Activation ──────────────────────────────────────────────
+  activationToken  String?   @unique
+  activationExpiry DateTime?
+  isFirstLogin     Boolean   @default(true)
+  trustedDevice    String?
+  // ─────────────────────────────────────────────────────────────────────────
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 

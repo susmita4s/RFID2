@@ -157,4 +157,36 @@ router.post('/bus-scan', async (req, res) => {
   }
 });
 
+// ── POST /api/rfid/scan-wallet ───────────────────────────────────────────────
+router.post('/scan-wallet', async (req, res) => {
+  const { rfid_tag } = req.body;
+  if (!rfid_tag) return res.status(400).json({ success: false, message: 'RFID tag is required' });
+
+  try {
+    const student = await prisma.student.findUnique({
+      where: { rfidTag: rfid_tag },
+      include: { rfidWallet: true }
+    });
+
+    if (!student) {
+      return res.status(404).json({ success: false, message: 'Invalid RFID tag' });
+    }
+
+    res.json({
+      success: true,
+      student: {
+        name: student.fullName,
+        class_name: student.className,
+        profile_image: student.profileImage || "https://i.pravatar.cc/150?u=1",
+        wallet_balance: student.rfidWallet ? student.rfidWallet.balance : 0,
+        rfid_tag: student.rfidTag
+      }
+    });
+
+  } catch (error) {
+    console.error('RFID Wallet Scan Error:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
 module.exports = router;

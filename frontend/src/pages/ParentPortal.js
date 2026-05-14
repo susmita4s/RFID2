@@ -1,6 +1,6 @@
-
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import { Html5QrcodeScanner } from "html5-qrcode";
 
 const ParentPortal = ({ onLogout, isDarkMode }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -10,25 +10,115 @@ const ParentPortal = ({ onLogout, isDarkMode }) => {
   const [supportMessage, setSupportMessage] = useState("");
   const [notifications, setNotifications] = useState([]);
 
+  // --- NEW: RAZORPAY & WALLET STATE ---
+  const [upiId, setUpiId] = useState("");
+  const [showQrScanner, setShowQrScanner] = useState(false);
+  const [transactions, setTransactions] = useState([]);
+  const scannerRef = useRef(null);
+
+  // --- NEW: RFID SCANNER STATE ---
+  const [rfidInput, setRfidInput] = useState("");
+  const [scanningRfid, setScanningRfid] = useState(false);
+  const [scannedStudent, setScannedStudent] = useState(null);
+  const [scanError, setScanError] = useState("");
+
   // Student Data State
-  const [student, setStudent] = useState({
-    name: "Arjun Sharma",
-    id: "STU-2024-001",
-    class: "10-A",
-    rollNo: "12",
-    house: "Blue House",
-    attendance: "94.2%",
-    wallet: 1250,
-    bloodGroup: "B+",
-    emergencyContact: "+91 98765-43210",
-    classTeacher: "Ms. Anjali Verma",
-    photo: "https://i.pravatar.cc/150?u=1",
-    performance: "Grade: A (Excellent)",
-    rank: "4th in Class",
-    busRoute: "Route 14 - Sector 5",
-    lastExam: "Mathematics (92/100)",
-    medicalNote: "No Known Allergies"
-  });
+  const [student, setStudent] = useState(null);
+  const [loadingStudent, setLoadingStudent] = useState(true);
+  const [errorStudent, setErrorStudent] = useState('');
+
+  // Fetch real student data and transactions from backend
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch('http://localhost:5000/api/parents/student-details', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        
+        if (res.ok && data.student) {
+          const dbStudent = data.student;
+          setStudent({
+            name: dbStudent.fullName || "N/A",
+            id: dbStudent.id, // Store real DB ID
+            studentId: dbStudent.studentId || "N/A",
+            class: dbStudent.className || "N/A",
+            rollNo: dbStudent.rollNumber || "N/A",
+            house: "Blue House",
+            attendance: "94.2%",
+            wallet: dbStudent.rfidWallet ? dbStudent.rfidWallet.balance : 0,
+            bloodGroup: "B+",
+            emergencyContact: dbStudent.phoneNumber || "N/A",
+            classTeacher: "Ms. Anjali Verma",
+            photo: dbStudent.profileImage || "https://i.pravatar.cc/150?u=1",
+            performance: "Grade: A (Excellent)",
+            rank: "4th in Class",
+            busRoute: "Route 14 - Sector 5",
+            lastExam: "Mathematics (92/100)",
+            medicalNote: "No Known Allergies",
+            rfid: dbStudent.rfidTag || "N/A"
+          });
+
+          // Fetch Transactions
+          fetchTransactions(dbStudent.id);
+        } else {
+          setErrorStudent(data.error || 'Failed to load student data.');
+        }
+      } catch (err) {
+        setErrorStudent('Network error loading student data.');
+        console.error(err);
+      } finally {
+        setLoadingStudent(false);
+      }
+    };
+    
+    fetchData();
+  }, []);
+
+  const fetchTransactions = async (studentId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`http://localhost:5000/api/wallet/transactions?studentId=${studentId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok && data.transactions) {
+        setTransactions(data.transactions);
+      }
+    } catch (err) {
+      console.error("Error fetching transactions:", err);
+    }
+  };
+
+  // QR Scanner Initialization
+  useEffect(() => {
+    if (showQrScanner && !scannerRef.current) {
+      const scanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+      scanner.render((decodedText) => {
+        try {
+          const qrData = JSON.parse(decodedText);
+          if (qrData.rfid_tag) {
+            setRfidInput(qrData.rfid_tag);
+            handleScanRfid(qrData.rfid_tag);
+            setShowQrScanner(false);
+            scanner.clear();
+          }
+        } catch (e) {
+          console.error("Invalid QR Format");
+        }
+      }, (error) => {
+        // Handle scan error
+      });
+      scannerRef.current = scanner;
+    }
+    return () => {
+      if (scannerRef.current) {
+        scannerRef.current.clear();
+        scannerRef.current = null;
+      }
+    };
+  }, [showQrScanner]);
 
   const recentActivities = [
     { time: "02:15 PM", action: "Library", desc: "Returned 'Java Programming'", icon: "book-half", color: "#6f42c1" },
@@ -37,7 +127,6 @@ const ParentPortal = ({ onLogout, isDarkMode }) => {
     { time: "Yesterday", action: "Bus", desc: "Dropped at Sector 5", icon: "bus-front", color: "#0d7c88" }
   ];
 
-  // --- NEW: SIMULATE LIVE NOTIFICATION ---
   useEffect(() => {
     const timer = setTimeout(() => {
       addNotification("Bus Arrival", "Route 14 has entered the school premises.");
@@ -54,13 +143,123 @@ const ParentPortal = ({ onLogout, isDarkMode }) => {
   };
 
   // --- HANDLERS ---
-  const handleRecharge = () => {
+  const handleRecharge = async () => {
+    if (!student && !scannedStudent) {
+      addNotification("Error", "Please select or scan a student first.");
+      return;
+    }
+
+    const targetStudentId = scannedStudent ? scannedStudent.id : student.id;
+    const targetAmount = rechargeAmount;
+
     setIsProcessing(true);
-    setTimeout(() => {
-      setStudent(prev => ({ ...prev, wallet: prev.wallet + rechargeAmount }));
+
+    try {
+      const token = localStorage.getItem('token');
+      
+      // 1. Create Order
+      const orderRes = await fetch("http://localhost:5000/api/wallet/create-order", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ amount: targetAmount, studentId: targetStudentId })
+      });
+      const orderData = await orderRes.json();
+
+      if (!orderRes.ok || !orderData.success) {
+        throw new Error(orderData.message || "Failed to create order");
+      }
+
+      // 2. Open Razorpay Checkout
+      const options = {
+        key: process.env.VITE_RAZORPAY_KEY_ID || "rzp_test_your_key_id",
+        amount: orderData.order.amount,
+        currency: orderData.order.currency,
+        name: "EduScan School Management",
+        description: `Wallet Recharge for ${scannedStudent ? scannedStudent.name : student.name}`,
+        order_id: orderData.order.id,
+        prefill: {
+          contact: student ? student.emergencyContact : "",
+          vpa: upiId 
+        },
+        handler: async (response) => {
+          // 3. Verify Payment
+          const verifyRes = await fetch("http://localhost:5000/api/wallet/verify-payment", {
+            method: "POST",
+            headers: { 
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              ...response,
+              amount: targetAmount,
+              studentId: targetStudentId,
+              paymentMethod: upiId ? `UPI (${upiId})` : "Razorpay Checkout"
+            })
+          });
+          const verifyData = await verifyRes.json();
+
+          if (verifyRes.ok && verifyData.success) {
+            // Update local state
+            if (scannedStudent) {
+              setScannedStudent(prev => ({ ...prev, wallet_balance: verifyData.wallet.balance }));
+            }
+            if (student && student.id === targetStudentId) {
+              setStudent(prev => ({ ...prev, wallet: verifyData.wallet.balance }));
+            }
+            
+            addNotification("Payment Success", `₹${targetAmount} added to wallet.`);
+            fetchTransactions(targetStudentId);
+          } else {
+            addNotification("Payment Failed", verifyData.message || "Verification failed");
+          }
+        },
+        theme: { color: "#0dcaf0" },
+      };
+
+      const rzp1 = new window.Razorpay(options);
+      rzp1.open();
+
+    } catch (err) {
+      console.error("Recharge Error:", err);
+      addNotification("Error", err.message || "Something went wrong.");
+    } finally {
       setIsProcessing(false);
-      addNotification("Wallet Updated", `₹${rechargeAmount} added successfully.`);
-    }, 1500);
+    }
+  };
+
+  const handleScanRfid = async (tagOverride = null) => {
+    const tag = tagOverride || rfidInput.trim();
+    if (!tag) {
+      setScanError("Please enter an RFID tag");
+      return;
+    }
+    
+    setScanningRfid(true);
+    setScanError("");
+    setScannedStudent(null);
+    
+    try {
+      const res = await fetch("http://localhost:5000/api/rfid/scan-wallet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rfid_tag: rfidInput.trim() })
+      });
+      const data = await res.json();
+      
+      if (res.ok && data.success) {
+        setScannedStudent(data.student);
+      } else {
+        setScanError(data.message || "Invalid RFID tag");
+      }
+    } catch (err) {
+      setScanError("Scanner connection failed.");
+      console.error(err);
+    } finally {
+      setScanningRfid(false);
+    }
   };
 
   const handleAdminChat = () => {
@@ -96,6 +295,26 @@ const ParentPortal = ({ onLogout, isDarkMode }) => {
     color: colors.text,
     borderRadius: '24px'
   };
+
+  if (loadingStudent) {
+    return (
+      <div className={`min-vh-100 d-flex justify-content-center align-items-center ${isDarkMode ? 'bg-dark text-white' : 'bg-light text-dark'}`}>
+        <div className="spinner-border text-info" role="status" style={{ width: '3rem', height: '3rem' }}>
+          <span className="visually-hidden">Loading...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (errorStudent || !student) {
+    return (
+      <div className={`min-vh-100 d-flex justify-content-center align-items-center flex-column ${isDarkMode ? 'bg-dark text-white' : 'bg-light text-dark'}`}>
+        <i className="bi bi-exclamation-triangle text-danger" style={{ fontSize: '4rem' }}></i>
+        <h4 className="mt-3">{errorStudent || 'No linked student found.'}</h4>
+        <button onClick={onLogout} className="btn btn-outline-danger mt-4 rounded-pill px-4">Logout</button>
+      </div>
+    );
+  }
 
   return (
     <div className={`min-vh-100 ${isDarkMode ? 'bg-dark' : 'bg-light'}`} style={{ transition: 'all 0.4s ease', color: colors.text }}>
@@ -245,6 +464,83 @@ const ParentPortal = ({ onLogout, isDarkMode }) => {
                                 </div>
                             ))}
                         </div>
+
+                        {/* --- QR SCANNER SECTION --- */}
+                        <div className="mb-4">
+                            <button 
+                                onClick={() => setShowQrScanner(!showQrScanner)} 
+                                className={`btn w-100 rounded-3 py-2 fw-bold mb-3 ${showQrScanner ? 'btn-danger' : 'btn-outline-info'}`}
+                            >
+                                <i className={`bi bi-${showQrScanner ? 'x-lg' : 'qr-code-scan'} me-2`}></i>
+                                {showQrScanner ? 'Close QR Scanner' : 'Scan Student QR'}
+                            </button>
+                            
+                            {showQrScanner && (
+                                <div id="reader" className="rounded-4 overflow-hidden border border-info mb-3"></div>
+                            )}
+                        </div>
+
+                        {/* --- UPI ID SECTION --- */}
+                        <div className="mb-4">
+                            <label className="form-label small fw-bold opacity-75">Pay via UPI ID</label>
+                            <input 
+                                type="text" 
+                                className="form-control rounded-3" 
+                                placeholder="parent@upi" 
+                                value={upiId}
+                                onChange={(e) => setUpiId(e.target.value)}
+                                style={{ background: isDarkMode ? '#212529' : '#fff', color: colors.text, borderColor: colors.border }}
+                            />
+                        </div>
+
+                        {/* --- EXISTING RFID SCANNER SECTION --- */}
+                        <div className="p-3 mb-4 rounded-4 border" style={{ borderColor: colors.border, background: isDarkMode ? 'rgba(0,0,0,0.2)' : '#f8f9fa' }}>
+                            <h6 className="fw-bold small mb-3"><i className="bi bi-upc-scan me-2"></i>RFID Scanner</h6>
+                            
+                            <div className="d-flex gap-2 mb-3">
+                                <input 
+                                    type="text" 
+                                    className="form-control" 
+                                    placeholder="Scan or Enter RFID Tag" 
+                                    value={rfidInput}
+                                    onChange={(e) => setRfidInput(e.target.value)}
+                                    style={{ background: isDarkMode ? '#212529' : '#fff', color: colors.text, borderColor: colors.border }}
+                                />
+                                <button 
+                                    onClick={handleScanRfid}
+                                    disabled={scanningRfid || !rfidInput.trim()}
+                                    className="btn btn-primary px-4 fw-bold shadow-sm d-flex align-items-center"
+                                >
+                                    {scanningRfid ? (
+                                        <div className="spinner-border spinner-border-sm" role="status"></div>
+                                    ) : (
+                                        "Scan RFID"
+                                    )}
+                                </button>
+                            </div>
+
+                            {scanError && (
+                                <div className="alert alert-danger small py-2 mb-0 d-flex align-items-center">
+                                    <i className="bi bi-exclamation-circle-fill me-2"></i> {scanError}
+                                </div>
+                            )}
+
+                            {scannedStudent && (
+                                <div className="d-flex align-items-center mt-3 p-2 rounded-3" style={{ background: isDarkMode ? 'rgba(255,255,255,0.05)' : '#fff', border: `1px solid ${colors.border}` }}>
+                                    <img src={scannedStudent.profile_image} alt="Student" className="rounded-circle me-3 border border-info" style={{ width: '50px', height: '50px', objectFit: 'cover' }} />
+                                    <div className="flex-grow-1">
+                                        <div className="fw-bold small lh-sm">{scannedStudent.name}</div>
+                                        <div className="text-muted" style={{ fontSize: '10px' }}>ID: {scannedStudent.rfid_tag} | {scannedStudent.class_name}</div>
+                                    </div>
+                                    <div className="text-end">
+                                        <div className="fw-bold text-info">₹{scannedStudent.wallet_balance}</div>
+                                        <div className="text-muted" style={{ fontSize: '10px' }}>Balance</div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                        {/* --- END NEW RFID SCANNER SECTION --- */}
+
                         <button onClick={handleRecharge} className="btn btn-info btn-lg w-100 rounded-pill text-white fw-bold shadow mb-3">
                             {isProcessing ? 'Processing...' : `Pay ₹${rechargeAmount}`}
                         </button>
@@ -257,12 +553,26 @@ const ParentPortal = ({ onLogout, isDarkMode }) => {
                 <div className="col-md-5">
                     <div className="card p-4 touch-card h-100 shadow-sm" style={cardStyle}>
                         <h6 className="fw-bold mb-4">Transaction History</h6>
-                        <div className="list-group list-group-flush">
-                            <HistoryItem title="Canteen - Meal" date="Today" amt="-₹80" />
-                            <HistoryItem title="Library - Late Fee" date="24 Mar" amt="-₹20" />
-                            <HistoryItem title="Wallet Recharge" date="22 Mar" amt="+₹1000" isPlus />
-                            <HistoryItem title="Uniform Shop" date="15 Mar" amt="-₹450" />
-                            <HistoryItem title="Bus Subscription" date="01 Mar" amt="-₹1200" />
+                        <div className="list-group list-group-flush" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                            {transactions.length > 0 ? (
+                                transactions.map((tx) => (
+                                    <HistoryItem 
+                                        key={tx.id}
+                                        title={tx.description || "Wallet Transaction"} 
+                                        date={new Date(tx.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} 
+                                        amt={`${tx.type === 'CREDIT' ? '+' : '-'}₹${tx.amount}`} 
+                                        isPlus={tx.type === 'CREDIT'} 
+                                    />
+                                ))
+                            ) : (
+                                <>
+                                    <HistoryItem title="Canteen - Meal" date="Today" amt="-₹80" />
+                                    <HistoryItem title="Library - Late Fee" date="24 Mar" amt="-₹20" />
+                                    <HistoryItem title="Wallet Recharge" date="22 Mar" amt="+₹1000" isPlus />
+                                    <HistoryItem title="Uniform Shop" date="15 Mar" amt="-₹450" />
+                                    <HistoryItem title="Bus Subscription" date="01 Mar" amt="-₹1200" />
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>

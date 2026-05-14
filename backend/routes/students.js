@@ -1,13 +1,18 @@
 const express = require('express');
+const crypto  = require('crypto');
 const { PrismaClient } = require('@prisma/client');
 const { verifyToken } = require('./auth');
 const { parseISO, startOfDay, addMinutes } = require('date-fns');
 const multer = require('multer');
 const { storage } = require('../cloudinary');
+const { sendActivationEmail } = require('../mailer');
 const upload = multer({ storage });
 
 const router = express.Router();
 const prisma = new PrismaClient();
+
+// ── Helper: Generate secure activation token ──────────────────────────────────
+const generateActivationToken = () => crypto.randomBytes(32).toString('hex');
 
 // Helper to convert frontend date string "YYYY-MM-DD" to safe local midnight DB date
 const convertToLocalDate = (dateStr) => {
@@ -87,8 +92,22 @@ router.post('/create', verifyToken, upload.single('profileImage'), async (req, r
   try {
     // Generate STU-YYYY-XXX
     const year = new Date().getFullYear();
-    const count = await prisma.student.count({ where: { studentId: { startsWith: `STU-${year}-` } } });
-    const studentIdStr = `STU-${year}-${String(count + 1).padStart(3, '0')}`;
+    
+    // Fetch the last created student ID for this year to properly increment
+    const lastStudent = await prisma.student.findFirst({
+      where: { studentId: { startsWith: `STU-${year}-` } },
+      orderBy: { studentId: 'desc' }
+    });
+    
+    let nextNum = 1;
+    if (lastStudent && lastStudent.studentId) {
+      const parts = lastStudent.studentId.split('-');
+      if (parts.length === 3 && !isNaN(parts[2])) {
+        nextNum = parseInt(parts[2], 10) + 1;
+      }
+    }
+    
+    const studentIdStr = `STU-${year}-${String(nextNum).padStart(3, '0')}`;
     
     // Generate dummy rollNumber for backwards compatibility
     const rollNumber = `R-${Date.now()}`;
@@ -136,11 +155,138 @@ router.post('/create', verifyToken, upload.single('profileImage'), async (req, r
       return newStudent;
     });
 
+    // ── Trigger Parent Account Activation Flow ────────────────────────────────
+    // Only send activation if a parent email was provided
+    if (email) {
+      try {
+        // Check if parent User already exists for this email
+        let parentUser = await prisma.user.findUnique({ where: { email } });
+
+        if (!parentUser) {
+          // Create new INACTIVE parent account — no password yet
+          const activationToken  = generateActivationToken();
+          const activationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+          parentUser = await prisma.user.create({
+            data: {
+              firstName: guardianName ? guardianName.split(' ')[0] : 'Parent',
+              lastName:  guardianName ? guardianName.split(' ').slice(1).join(' ') : '',
+              email,
+              password:  '',       // No password until they set it via activation link
+              role:      'parent',
+              isVerified: false,   // Inactive until password is set
+              isFirstLogin: true,
+              activationToken,
+              activationExpiry
+            }
+          });
+
+          // Link parent User to student
+          await prisma.student.update({
+            where: { id: student.id },
+            data:  { userId: parentUser.id }
+          });
+
+          // Build and send activation email
+          const frontendUrl    = process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:3000';
+          const activationLink = `${frontendUrl}/parent/set-password?token=${activationToken}`;
+
+          const emailResult = await sendActivationEmail(
+            email,
+            guardianName || 'Parent',
+            fullName,
+            activationLink
+          );
+
+          if (!emailResult.success) {
+            console.warn(`⚠️ Activation email could not be sent to ${email}:`, emailResult.error);
+          } else {
+            console.log(`✅ Parent activation email dispatched to ${email}`);
+          }
+
+          // In dev mode, expose the link in the response for easy testing
+          if (process.env.NODE_ENV !== 'production') {
+            return res.status(201).json({
+              success: true,
+              message: 'Student registered successfully. Parent activation email sent.',
+              student,
+              _devActivationLink: activationLink
+            });
+          }
+        } else if (parentUser.isVerified) {
+          // Parent already has an active account — but user wants the flow to happen every time.
+          // So we mark them unverified, generate a new token, and send the email.
+          const activationToken  = generateActivationToken();
+          const activationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+          await prisma.user.update({
+            where: { email },
+            data:  { 
+                isVerified: false,
+                activationToken, 
+                activationExpiry 
+            }
+          });
+
+          await prisma.student.update({
+            where: { id: student.id },
+            data:  { userId: parentUser.id }
+          });
+
+          const frontendUrl    = process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:3000';
+          const activationLink = `${frontendUrl}/parent/set-password?token=${activationToken}`;
+
+          await sendActivationEmail(email, guardianName || 'Parent', fullName, activationLink);
+          
+          console.log(`ℹ️ Parent account reset for ${email} to enforce activation flow. Student linked.`);
+        } else {
+          // Parent exists but not yet activated — resend activation
+          const activationToken  = generateActivationToken();
+          const activationExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+          await prisma.user.update({
+            where: { email },
+            data:  { activationToken, activationExpiry }
+          });
+
+          await prisma.student.update({
+            where: { id: student.id },
+            data:  { userId: parentUser.id }
+          });
+
+          const frontendUrl    = process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:3000';
+          const activationLink = `${frontendUrl}/parent/set-password?token=${activationToken}`;
+
+          await sendActivationEmail(email, guardianName || 'Parent', fullName, activationLink);
+
+          if (process.env.NODE_ENV !== 'production') {
+            return res.status(201).json({
+              success: true,
+              message: 'Student registered. Parent activation email resent.',
+              student,
+              _devActivationLink: activationLink
+            });
+          }
+        }
+      } catch (parentErr) {
+        // Parent activation failure must NOT block the student creation response
+        console.error('⚠️ Parent activation flow error (non-fatal):', parentErr.message);
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     res.status(201).json({ success: true, message: 'Student registered successfully', student });
   } catch (error) {
     console.error('Create student error:', error);
     if (error.code === 'P2002') {
-      return res.status(409).json({ success: false, message: 'Email or RFID already exists.' });
+      const target = error.meta?.target || '';
+      if (target.includes('email') || target.includes('parentEmail')) {
+        return res.status(409).json({ success: false, message: 'Email is already registered.' });
+      }
+      if (target.includes('rfidTag')) {
+        return res.status(409).json({ success: false, message: 'RFID Tag is already assigned to another user.' });
+      }
+      return res.status(409).json({ success: false, message: 'A duplicate record exists (Email, RFID, or ID).' });
     }
     res.status(500).json({ success: false, message: 'Failed to create student.' });
   }

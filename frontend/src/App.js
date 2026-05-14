@@ -42,27 +42,25 @@
 
 
 import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Auth from './Auth';
 import Dashboard from './pages/Dashboard';
 import ParentPortal from './pages/ParentPortal';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
+import SetPassword from './pages/SetPassword';
 import LandingPage from './LandingPage';
-// Ensure your CSS is imported here
 import './Login.css'; 
 import './Responsive.css'; 
 
-const App = () => {
+const MainApp = () => {
   const [userRole, setUserRole] = useState(null);
   const [page, setPage] = useState('landing');
   const [registerRole, setRegisterRole] = useState('parent');
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   
-  // --- THEME STATE ---
-  // Default to 'dark'. You can also check local storage here.
   const [theme, setTheme] = useState('dark');
 
-  // --- RESTORE SESSION ---
   useEffect(() => {
     const restoreSession = async () => {
       const token = localStorage.getItem('token');
@@ -80,7 +78,6 @@ const App = () => {
           const user = await response.json();
           setUserRole(user.role === 'admin' ? 'admin' : 'parent');
         } else {
-          // Token invalid or expired
           localStorage.removeItem('token');
           localStorage.removeItem('user');
           setUserRole(null);
@@ -109,7 +106,7 @@ const App = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUserRole(null);
-    setPage('login'); // reset page
+    setPage('login');
   };
 
   if (isAuthLoading) {
@@ -123,10 +120,7 @@ const App = () => {
   }
 
   return (
-    // The data-theme attribute here triggers the CSS variables in your Login.css
     <div data-theme={theme} className="app-container">
-      
-      {/* Floating Theme Toggle Button */}
       <button 
         className="theme-switch-btn" 
         onClick={toggleTheme}
@@ -149,6 +143,17 @@ const App = () => {
         <Auth onLogin={handleLogin} setPage={setPage} setRegisterRole={setRegisterRole} />
       )}
     </div>
+  );
+};
+
+const App = () => {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/parent/set-password" element={<SetPassword onGoToLogin={() => window.location.href = '/'} />} />
+        <Route path="*" element={<MainApp />} />
+      </Routes>
+    </BrowserRouter>
   );
 };
 

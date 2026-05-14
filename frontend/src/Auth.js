@@ -33,13 +33,61 @@ const Auth = ({ onLogin, setPage, setRegisterRole }) => {
         }
     };
 
+    // --- OTP State ---
+    const [showOTP, setShowOTP] = useState(false);
+    const [otpEmail, setOtpEmail] = useState('');
+    const [otp, setOtp] = useState(new Array(6).fill(''));
+    const [verifying, setVerifying] = useState(false);
+
+    const handleOtpChange = (element, index) => {
+        if (isNaN(element.value)) return false;
+        setOtp([...otp.map((d, idx) => (idx === index ? element.value : d))]);
+        // Focus next input
+        if (element.nextSibling) {
+            element.nextSibling.focus();
+        }
+    };
+
+    const handleVerifyOTP = async (e) => {
+        e.preventDefault();
+        const otpValue = otp.join('');
+        if (otpValue.length < 6) return setError('Please enter complete OTP');
+        
+        setVerifying(true);
+        setError('');
+        try {
+            const res = await fetch('http://localhost:5000/api/parents/verify-otp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: otpEmail, otp: otpValue })
+            });
+            const data = await res.json();
+            
+            if (res.ok) {
+                localStorage.setItem('token', data.token);
+                localStorage.setItem('user', JSON.stringify(data.user));
+                if (onLogin) onLogin('parent');
+            } else {
+                setError(data.error || 'Invalid OTP');
+            }
+        } catch (err) {
+            setError('Verification failed. Please check your network.');
+        } finally {
+            setVerifying(false);
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
         setLoading(true);
 
         try {
-            const response = await fetch('http://localhost:5000/api/auth/login', {
+            const loginUrl = role === 'parent' 
+                ? 'http://localhost:5000/api/parents/login' 
+                : 'http://localhost:5000/api/auth/login';
+
+            const response = await fetch(loginUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password })
@@ -49,20 +97,24 @@ const Auth = ({ onLogin, setPage, setRegisterRole }) => {
 
             if (!response.ok) {
                 // If unverified parent tries to login
-                if (data.requireOtp) {
-                    setError('Please verify your email before login.');
+                if (data.requireOtp || data.error?.includes('verify your email')) {
+                    setError('Please verify your email via the activation link before login.');
                 } else {
                     setError(data.error || 'Invalid email or password.');
                 }
             } else {
-                // Success
-                localStorage.setItem('token', data.token);
-                const userData = data.admin || data.user;
-                localStorage.setItem('user', JSON.stringify(userData));
-                
-                // For compatibility with App.js onLogin logic
-                if (onLogin) {
-                    onLogin(userData.role === 'admin' ? 'administrator' : 'parent');
+                if (data.requiresOTP) {
+                    setOtpEmail(data.email || email);
+                    setShowOTP(true);
+                } else {
+                    // Success (Admin)
+                    localStorage.setItem('token', data.token);
+                    const userData = data.admin || data.user;
+                    localStorage.setItem('user', JSON.stringify(userData));
+                    
+                    if (onLogin) {
+                        onLogin(userData.role === 'admin' ? 'administrator' : 'parent');
+                    }
                 }
             }
         } catch (err) {
@@ -87,6 +139,55 @@ const Auth = ({ onLogin, setPage, setRegisterRole }) => {
                         <h3 className="text-white mb-3">{featureInfo[activeFeature].title}</h3>
                         <p className="text-light-muted">{featureInfo[activeFeature].description}</p>
                         <button className="btn btn-cyan mt-3" onClick={() => setActiveFeature(null)}>Got it</button>
+                    </div>
+                </div>
+            )}
+
+            {/* OTP Modal Overlay */}
+            {showOTP && (
+                <div className="feature-overlay d-flex justify-content-center align-items-center" style={{ zIndex: 9999 }}>
+                    <div className="login-card p-4 text-center" style={{ maxWidth: '400px', width: '100%', background: '#fff' }}>
+                        <h3 className="fw-bold mb-3" style={{ color: '#0f172a' }}>Verify Login</h3>
+                        <p className="small text-muted mb-4">
+                            We've sent a 6-digit secure OTP to <strong>{otpEmail}</strong>.<br/>
+                            Please enter it below to securely access the Parent Portal.
+                        </p>
+                        
+                        {error && <div className="alert alert-danger py-2 small">{error}</div>}
+
+                        <form onSubmit={handleVerifyOTP}>
+                            <div className="d-flex justify-content-center gap-2 mb-4">
+                                {otp.map((data, index) => (
+                                    <input
+                                        className="form-control text-center fw-bold fs-4"
+                                        type="text"
+                                        name="otp"
+                                        maxLength="1"
+                                        key={index}
+                                        value={data}
+                                        onChange={e => handleOtpChange(e.target, index)}
+                                        onFocus={e => e.target.select()}
+                                        style={{ width: '45px', height: '55px', border: '2px solid #e2e8f0', borderRadius: '10px', color: '#0f172a', backgroundColor: '#f8fafc' }}
+                                    />
+                                ))}
+                            </div>
+                            
+                            <button 
+                                type="submit" 
+                                className="btn btn-cyan w-100 fw-bold py-3 mb-3 shadow"
+                                disabled={verifying}
+                            >
+                                {verifying ? "Verifying..." : "Secure Login"}
+                            </button>
+                            
+                            <button 
+                                type="button" 
+                                className="btn btn-link text-muted small w-100 text-decoration-none"
+                                onClick={() => { setShowOTP(false); setError(''); }}
+                            >
+                                Cancel
+                            </button>
+                        </form>
                     </div>
                 </div>
             )}
