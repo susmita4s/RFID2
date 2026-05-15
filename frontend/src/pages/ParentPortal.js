@@ -282,25 +282,28 @@ const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
     }, 1500);
   };
 
+  // Define theme-based colors
+  const isDark = theme === 'dark';
   const colors = {
-    text: theme === 'dark' ? '#f8f9fa' : '#212529',
-    muted: theme === 'dark' ? '#adb5bd' : '#6c757d',
-    card: theme === 'dark' ? 'rgba(33, 37, 41, 0.7)' : '#ffffff',
-    border: theme === 'dark' ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
+    bg: isDark ? '#0f172a' : '#f8fafc',
+    card: isDark ? '#1e293b' : '#ffffff',
+    text: isDark ? '#f8fafc' : '#1e293b',
+    border: isDark ? 'rgba(255,255,255,0.1)' : '#e2e8f0',
     accent: '#085b45'
   };
 
-  const cardStyle = { 
-    background: colors.card, 
-    backdropFilter: 'blur(12px)', 
-    border: `1px solid ${colors.border}`,
+  const cardStyle = {
+    backgroundColor: colors.card,
     color: colors.text,
-    borderRadius: '24px'
+    borderColor: colors.border,
+    borderRadius: '24px',
+    border: '1px solid',
+    transition: 'all 0.3s ease'
   };
 
   if (loadingStudent) {
     return (
-      <div className={`min-vh-100 d-flex justify-content-center align-items-center ${isDarkMode ? 'bg-dark text-white' : 'bg-light text-dark'}`}>
+      <div className={`min-vh-100 d-flex justify-content-center align-items-center ${theme === 'dark' ? 'bg-dark text-white' : 'bg-light text-dark'}`}>
         <div className="spinner-border text-info" role="status" style={{ width: '3rem', height: '3rem' }}>
           <span className="visually-hidden">Loading...</span>
         </div>
@@ -310,7 +313,7 @@ const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
 
   if (errorStudent || !student) {
     return (
-      <div className={`min-vh-100 d-flex justify-content-center align-items-center flex-column ${isDarkMode ? 'bg-dark text-white' : 'bg-light text-dark'}`}>
+      <div className={`min-vh-100 d-flex justify-content-center align-items-center flex-column ${theme === 'dark' ? 'bg-dark text-white' : 'bg-light text-dark'}`}>
         <i className="bi bi-exclamation-triangle text-danger" style={{ fontSize: '4rem' }}></i>
         <h4 className="mt-3">{errorStudent || 'No linked student found.'}</h4>
         <button onClick={onLogout} className="btn btn-outline-danger mt-4 rounded-pill px-4">Logout</button>
@@ -423,12 +426,6 @@ const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
           </div>
 
           <div className="d-flex align-items-center">
-            {/* Theme Toggle Switch */}
-            <div className="theme-toggle-wrapper" onClick={toggleTheme}>
-              {theme === 'dark' ? <MoonFill size={14} className="text-info" /> : <Sun size={14} className="text-warning" />}
-              <div className={`theme-switch ${theme === 'dark' ? 'active' : ''}`}></div>
-            </div>
-
             <button onClick={onLogout} className="btn btn-outline-danger btn-sm rounded-pill px-3 fw-bold">
               <i className="bi bi-box-arrow-right me-2"></i>Logout
             </button>
@@ -544,12 +541,12 @@ const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
                                 placeholder="parent@upi" 
                                 value={upiId}
                                 onChange={(e) => setUpiId(e.target.value)}
-                                style={{ background: isDarkMode ? '#212529' : '#fff', color: colors.text, borderColor: colors.border }}
+                                style={{ background: theme === 'dark' ? '#212529' : '#fff', color: colors.text, borderColor: colors.border }}
                             />
                         </div>
 
                         {/* --- EXISTING RFID SCANNER SECTION --- */}
-                        <div className="p-3 mb-4 rounded-4 border" style={{ borderColor: colors.border, background: isDarkMode ? 'rgba(0,0,0,0.2)' : '#f8f9fa' }}>
+                        <div className="p-3 mb-4 rounded-4 border" style={{ borderColor: colors.border, background: theme === 'dark' ? 'rgba(0,0,0,0.2)' : '#f8f9fa' }}>
                             <h6 className="fw-bold small mb-3"><i className="bi bi-upc-scan me-2"></i>RFID Scanner</h6>
                             
                             <div className="d-flex gap-2 mb-3">
@@ -559,7 +556,7 @@ const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
                                     placeholder="Scan or Enter RFID Tag" 
                                     value={rfidInput}
                                     onChange={(e) => setRfidInput(e.target.value)}
-                                    style={{ background: isDarkMode ? '#212529' : '#fff', color: colors.text, borderColor: colors.border }}
+                                    style={{ background: theme === 'dark' ? '#212529' : '#fff', color: colors.text, borderColor: colors.border }}
                                 />
                                 <button 
                                     onClick={handleScanRfid}
@@ -581,7 +578,7 @@ const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
                             )}
 
                             {scannedStudent && (
-                                <div className="d-flex align-items-center mt-3 p-2 rounded-3" style={{ background: isDarkMode ? 'rgba(255,255,255,0.05)' : '#fff', border: `1px solid ${colors.border}` }}>
+                                <div className="d-flex align-items-center mt-3 p-2 rounded-3" style={{ background: theme === 'dark' ? 'rgba(255,255,255,0.05)' : '#fff', border: `1px solid ${colors.border}` }}>
                                     <img src={scannedStudent.profile_image} alt="Student" className="rounded-circle me-3 border border-info" style={{ width: '50px', height: '50px', objectFit: 'cover' }} />
                                     <div className="flex-grow-1">
                                         <div className="fw-bold small lh-sm">{scannedStudent.name}</div>

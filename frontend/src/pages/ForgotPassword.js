@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Eye, EyeSlash, ArrowLeft } from "react-bootstrap-icons";
 import "../Login.css"; // uses same CSS as login
 
-const ForgotPassword = ({ setPage }) => {
+const ForgotPassword = ({ setPage, theme }) => {
   const [step, setStep] = useState(1); // 1: Request OTP, 2: Reset Password
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
@@ -96,7 +96,7 @@ const ForgotPassword = ({ setPage }) => {
   };
 
   return (
-    <div className="container-fluid vh-100 d-flex align-items-center justify-content-center bg-dark-navy position-relative">
+    <div className={`container-fluid vh-100 d-flex align-items-center justify-content-center position-relative ${theme === 'dark' ? 'bg-dark-navy' : 'bg-light-gray'}`}>
       <div className="login-card w-100" style={{ maxWidth: "450px" }}>
         
         {/* Back Button */}
@@ -108,7 +108,7 @@ const ForgotPassword = ({ setPage }) => {
         </button>
 
         <div className="text-center mb-4">
-          <h2 className="text-white fw-bold">Reset Password</h2>
+          <h2 className={`${theme === 'dark' ? 'text-white' : 'text-dark'} fw-bold`}>Reset Password</h2>
           <p className="text-light-muted">
             {step === 1 ? "Enter your email to receive an OTP" : "Enter OTP and your new password"}
           </p>

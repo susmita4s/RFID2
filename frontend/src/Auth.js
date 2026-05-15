@@ -127,15 +127,7 @@ const Auth = ({ onLogin, setPage, setRegisterRole, theme, toggleTheme }) => {
 
     return (
         <div className="container-fluid vh-100 p-0 overflow-hidden position-relative">
-            {/* Theme Toggle Switch - Top Right */}
-            <div className="position-absolute" style={{ top: '25px', right: '25px', zIndex: 1100 }}>
-                <div className="theme-toggle-wrapper-auth d-flex align-items-center gap-2" onClick={toggleTheme} style={{ cursor: 'pointer', background: 'rgba(255,255,255,0.05)', padding: '6px 12px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }}>
-                    {theme === 'dark' ? <MoonFill size={14} className="text-info" /> : <Sun size={14} className="text-warning" />}
-                    <div className={`theme-switch ${theme === 'dark' ? 'active' : ''}`} style={{ width: '36px', height: '20px', background: 'rgba(255,255,255,0.2)', borderRadius: '10px', position: 'relative', transition: '0.3s' }}>
-                        <div style={{ position: 'absolute', width: '16px', height: '16px', background: 'white', borderRadius: '50%', top: '2px', left: theme === 'dark' ? '18px' : '2px', transition: '0.3s' }}></div>
-                    </div>
-                </div>
-            </div>
+
             
             {/* Feature Popup Modal */}
             {activeFeature && (
@@ -203,7 +195,7 @@ const Auth = ({ onLogin, setPage, setRegisterRole, theme, toggleTheme }) => {
 
             <div className="row g-0 h-100">
                 {/* Left Side: Branding */}
-                <div className="col-lg-6 d-none d-lg-flex flex-column justify-content-center align-items-start p-5 branding-section">
+                <div className={`col-lg-6 d-none d-lg-flex flex-column justify-content-center align-items-start p-5 branding-section ${theme === 'dark' ? 'bg-dark-navy' : 'bg-light-gray'}`}>
                     <div className="brand-header mb-5">
                         <div className="logo-box me-2">
                             <span className="logo-icon">💳</span>
@@ -253,7 +245,7 @@ const Auth = ({ onLogin, setPage, setRegisterRole, theme, toggleTheme }) => {
                 </div>
 
                 {/* Right Side: Login Form */}
-                <div className="col-lg-6 d-flex align-items-center justify-content-center bg-dark-navy p-4">
+                <div className={`col-lg-6 d-flex align-items-center justify-content-center p-4 ${theme === 'dark' ? 'bg-dark-navy' : 'bg-light-gray'}`}>
                     <div className="login-card w-100" style={{ maxWidth: '450px' }}>
                         <div className="text-center mb-4">
                             <h2 className="text-white fw-bold">Welcome Back</h2>

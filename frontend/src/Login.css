@@ -212,3 +212,19 @@ h1, h2, h3 {
     color: var(--text-muted) !important;
     opacity: 0.8; /* Slightly darker in light mode for better accessibility */
 }
+
+/* Background Utilities for Theme Support */
+.bg-dark-navy {
+    background-color: var(--bg-main) !important;
+    transition: background-color 0.3s ease;
+}
+
+.bg-light-gray {
+    background-color: var(--bg-main) !important;
+    transition: background-color 0.3s ease;
+}
+
+.bg-dark-navy-card {
+    background-color: var(--bg-card) !important;
+    transition: background-color 0.3s ease;
+}

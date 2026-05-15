@@ -40,7 +40,7 @@ const SLIDES = [
   },
 ];
 
-const LandingPage = ({ onStart }) => {
+const LandingPage = ({ onStart, theme, toggleTheme }) => {
   const [activeSlide, setActiveSlide] = useState(0);
 
   useEffect(() => {
@@ -73,14 +73,14 @@ const LandingPage = ({ onStart }) => {
           background-image: url('https://images.unsplash.com/photo-1562774053-701939374585?w=1920&auto=format&fit=crop&q=80');
           background-size: cover;
           background-position: center;
-          filter: blur(14px) brightness(0.28) saturate(1.5);
+          filter: blur(14px) brightness(${theme === 'dark' ? '0.28' : '0.8'}) saturate(1.5);
           transform: scale(1.07);
           z-index: 0;
         }
         .lp-overlay {
           position: absolute;
           inset: 0;
-          background: linear-gradient(140deg, rgba(5,22,20,0.9) 0%, rgba(20,100,90,0.55) 100%);
+          background: ${theme === 'dark' ? 'linear-gradient(140deg, rgba(5,22,20,0.9) 0%, rgba(20,100,90,0.55) 100%)' : 'linear-gradient(140deg, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.4) 100%)'};
           z-index: 1;
         }
 
@@ -102,18 +102,47 @@ const LandingPage = ({ onStart }) => {
         .lp-card {
           position: relative;
           z-index: 10;
-          background: rgba(8, 30, 27, 0.70);
+          background: ${theme === 'dark' ? 'rgba(8, 30, 27, 0.70)' : 'rgba(255, 255, 255, 0.85)'};
           backdrop-filter: blur(30px);
           -webkit-backdrop-filter: blur(30px);
-          border: 1px solid rgba(32,178,170,0.28);
+          border: 1px solid ${theme === 'dark' ? 'rgba(32,178,170,0.28)' : 'rgba(32,178,170,0.5)'};
           border-radius: 36px;
           padding: 52px 56px 44px 56px;
           max-width: 1080px;
           width: 100%;
           box-shadow:
-            0 32px 80px rgba(0,0,0,0.55),
+            0 32px 80px ${theme === 'dark' ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0.1)'},
             0 0 0 1px rgba(32,178,170,0.10);
         }
+
+        .lp-title {
+          font-size: 3.8rem;
+          font-weight: 900;
+          line-height: 1.06;
+          letter-spacing: -2px;
+          text-transform: uppercase;
+          color: ${theme === 'dark' ? '#fff' : '#111827'};
+          margin: 0 0 16px 0;
+        }
+
+        .lp-sub {
+          font-size: 1.2rem;
+          color: ${theme === 'dark' ? 'rgba(255,255,255,0.60)' : 'rgba(17,24,39,0.7)'};
+          font-weight: 400;
+          margin: 0;
+        }
+
+        .lp-feat-title {
+          font-size: 0.8rem;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          color: ${theme === 'dark' ? '#fff' : '#111827'};
+          margin-bottom: 4px;
+        }
+        
+        .lp-slide-footer span { font-size: 0.78rem; color: ${theme === 'dark' ? 'rgba(255,255,255,0.65)' : '#4b5563'}; }
+
 
         /* ── HERO ROW ── */
         .lp-hero {

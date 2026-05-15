@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Eye, EyeSlash } from "react-bootstrap-icons";
 import "../Login.css"; // ✅ use same CSS as login
 
-const Register = ({ setPage, role = "parent", onLogin }) => {
+const Register = ({ setPage, role = "parent", onLogin, theme }) => {
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
@@ -180,7 +180,7 @@ const Register = ({ setPage, role = "parent", onLogin }) => {
   };
 
   return (
-    <div className="container-fluid vh-100 d-flex align-items-center justify-content-center bg-dark-navy position-relative">
+    <div className={`container-fluid vh-100 d-flex align-items-center justify-content-center position-relative ${theme === 'dark' ? 'bg-dark-navy' : 'bg-light-gray'}`}>
       
       {/* OTP Modal Overlay */}
       {showOtpModal && (
@@ -188,7 +188,7 @@ const Register = ({ setPage, role = "parent", onLogin }) => {
           className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
           style={{ zIndex: 1050, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(5px)" }}
         >
-          <div className="bg-white p-4 rounded-4 shadow-lg text-center" style={{ width: "90%", maxWidth: "400px" }}>
+          <div className={`p-4 rounded-4 shadow-lg text-center ${theme === 'dark' ? 'bg-dark text-white' : 'bg-white'}`} style={{ width: "90%", maxWidth: "400px" }}>
             <h3 className="fw-bold mb-3">Verify Your Email</h3>
             <p className="text-muted small mb-4">
               We've sent a 6-digit OTP to <strong>{form.email}</strong>.<br/>
@@ -234,7 +234,7 @@ const Register = ({ setPage, role = "parent", onLogin }) => {
 
       <div className="login-card w-100" style={{ maxWidth: "450px" }}>
         <div className="text-center mb-4">
-          <h2 className="text-white fw-bold">
+          <h2 className={`${theme === 'dark' ? 'text-white' : 'text-dark'} fw-bold`}>
             {role === "administrator" ? "Administrator" : "Parent"} Registration
           </h2>
           <p className="text-light-muted">

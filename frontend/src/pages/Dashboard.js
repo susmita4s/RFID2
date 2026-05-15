@@ -398,11 +398,7 @@ const Dashboard = ({ onLogout, theme, toggleTheme }) => {
           </div>
 
           <div className="d-flex align-items-center">
-            {/* Theme Toggle Switch */}
-            <div className="theme-toggle-wrapper" onClick={toggleTheme}>
-              {theme === 'dark' ? <MoonFill size={14} className="text-primary" /> : <Sun size={14} className="text-warning" />}
-              <div className={`theme-switch ${theme === 'dark' ? 'active' : ''}`}></div>
-            </div>
+
 
             <div className="position-relative">
             <div className="admin-profile-trigger" onClick={(e) => { e.stopPropagation(); setShowAdminMenu(!showAdminMenu); }}>
