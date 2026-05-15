@@ -52,6 +52,7 @@ import SetPassword from './pages/SetPassword';
 import LandingPage from './LandingPage';
 import './Login.css'; 
 import './Responsive.css'; 
+import { Sun, MoonFill } from 'react-bootstrap-icons';
 
 const MainApp = () => {
   const [userRole, setUserRole] = useState(null);
@@ -121,26 +122,41 @@ const MainApp = () => {
 
   return (
     <div data-theme={theme} className="app-container">
-      <button 
-        className="theme-switch-btn" 
-        onClick={toggleTheme}
-        style={{ cursor: 'pointer' }}
+      {/* Global Theme Toggle */}
+      <div 
+        className="position-fixed" 
+        style={{ top: '25px', right: '25px', zIndex: 2000 }}
       >
-        {theme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode'}
-      </button>
+        <div 
+          className="d-flex align-items-center gap-2 shadow-lg" 
+          onClick={toggleTheme} 
+          style={{ 
+            cursor: 'pointer', 
+            background: theme === 'dark' ? 'rgba(30, 41, 59, 0.8)' : 'rgba(255, 255, 255, 0.8)', 
+            padding: '8px 16px', 
+            borderRadius: '25px', 
+            border: '1px solid var(--border-color)',
+            backdropFilter: 'blur(10px)',
+            color: 'var(--text-main)'
+          }}
+        >
+          {theme === 'dark' ? <MoonFill size={14} className="text-info" /> : <Sun size={14} className="text-warning" />}
+          <span className="fw-bold small" style={{ fontSize: '12px' }}>{theme === 'dark' ? 'Dark Mode' : 'Light Mode'}</span>
+        </div>
+      </div>
 
       {page === 'landing' ? (
-        <LandingPage onStart={() => setPage('login')} />
+        <LandingPage onStart={() => setPage('login')} theme={theme} toggleTheme={toggleTheme} />
       ) : userRole === 'admin' ? (
-        <Dashboard onLogout={handleLogout} />
+        <Dashboard onLogout={handleLogout} theme={theme} toggleTheme={toggleTheme} />
       ) : userRole === 'parent' ? (
-        <ParentPortal onLogout={handleLogout} />
+        <ParentPortal onLogout={handleLogout} theme={theme} toggleTheme={toggleTheme} />
       ) : page === 'register' ? (
-        <Register setPage={setPage} role={registerRole} onLogin={handleLogin} />
+        <Register setPage={setPage} role={registerRole} onLogin={handleLogin} theme={theme} toggleTheme={toggleTheme} />
       ) : page === 'forgot-password' ? (
-        <ForgotPassword setPage={setPage} />
+        <ForgotPassword setPage={setPage} theme={theme} toggleTheme={toggleTheme} />
       ) : (
-        <Auth onLogin={handleLogin} setPage={setPage} setRegisterRole={setRegisterRole} />
+        <Auth onLogin={handleLogin} setPage={setPage} setRegisterRole={setRegisterRole} theme={theme} toggleTheme={toggleTheme} />
       )}
     </div>
   );

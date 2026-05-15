@@ -172,18 +172,22 @@ h1, h2, h3 {
 /* Floating Theme Switcher */
 .theme-switch-btn {
   position: fixed;
-  bottom: 30px; /* Moved to bottom for better thumb reach */
-  right: 30px;
+  top: 25px; 
+  right: 25px;
   z-index: 1050;
-  border-radius: 16px;
-  padding: 12px 20px;
-  font-weight: 600;
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 1.3rem;
   background: var(--bg-card);
-  border: 1px solid var(--border);
+  border: 1.5px solid var(--border);
   color: var(--text-primary);
-  box-shadow: 0 10px 25px var(--card-shadow);
+  box-shadow: 0 10px 30px var(--card-shadow);
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .theme-switch-btn:hover {

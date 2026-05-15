@@ -6,19 +6,47 @@ import Library from './Library';
 import Payments from './Payments';
 import Settings from './Settings';
 import BusBoarding from './BusBoarding';
+import { Sun, MoonFill } from 'react-bootstrap-icons';
 
 const dashStyles = `
-  :root {
+  .dashboard-container { 
     --dash-bg: #f8fafc;
     --sidebar-bg: #111827;
     --accent-cyan: #00d9cc;
     --accent-purple: #a855f7;
     --accent-orange: #f59e0b;
     --text-main: #1e293b;
+    --text-muted: #64748b;
+    --card-bg: #ffffff;
+    --light-bg: #f1f5f9;
     --card-shadow: 0 4px 25px rgba(0, 0, 0, 0.06);
+    --border-color: #f1f5f9;
+    --input-bg: #ffffff;
+    --input-border: #e2e8f0;
   }
   
-  .dashboard-container { display: flex; height: 100vh; background: var(--dash-bg); font-family: 'Inter', sans-serif; color: var(--text-main); overflow: hidden; }
+  [data-theme='dark'] .dashboard-container {
+    --dash-bg: #0f172a;
+    --sidebar-bg: #020617;
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --card-bg: #1e293b;
+    --light-bg: #334155;
+    --card-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    --border-color: #334155;
+    --input-bg: #1e293b;
+    --input-border: #334155;
+  }
+  
+  .dashboard-container { 
+    display: flex; 
+    height: 100vh; 
+    background: var(--dash-bg); 
+    font-family: 'Inter', sans-serif; 
+    color: var(--text-main); 
+    overflow: hidden; 
+    transition: all 0.3s ease;
+  }
   
   .sidebar { width: 260px; background: var(--sidebar-bg); color: white; display: flex; flex-direction: column; padding: 24px; flex-shrink: 0; transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1); position: relative; z-index: 100; }
   .sidebar.collapsed { width: 85px; padding: 24px 15px; }
@@ -29,29 +57,35 @@ const dashStyles = `
   .nav-item:hover { color: white; background: rgba(255,255,255,0.05); }
   .nav-item.active { background: rgba(0, 217, 204, 0.1); color: var(--accent-cyan); }
   
-  .main-content { flex: 1; overflow-y: auto; padding: 30px 40px; position: relative; }
+  /* OVERRIDE BOOTSTRAP TEXT COLORS FOR THEME SUPPORT */
+  .dashboard-container .text-muted { color: var(--text-muted) !important; }
+  .dashboard-container .text-dark { color: var(--text-main) !important; }
+  .dashboard-container .bg-light { background-color: var(--light-bg) !important; }
+  .dashboard-container .bg-white { background-color: var(--card-bg) !important; border-color: var(--border-color) !important; }
+  
+  .main-content { flex: 1; overflow-y: auto; padding: 30px 40px; position: relative; transition: background-color 0.3s ease; }
   .animate-fade-in { animation: fadeIn 0.4s ease-out; }
   @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
   /* SEARCH & DATE BAR */
   .search-container { display: flex; gap: 10px; width: 500px; }
   .search-wrapper { position: relative; flex: 1; }
-  .search-input { width: 100%; padding: 10px 15px 10px 45px; background: white; border: 1px solid #e2e8f0; border-radius: 12px; font-size: 0.9rem; }
-  .search-icon { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); color: #94a3b8; }
-  .header-date-input { border: 1px solid #e2e8f0; border-radius: 12px; padding: 0 15px; font-size: 0.85rem; outline: none; background: white; width: 150px; }
+  .search-input { width: 100%; padding: 10px 15px 10px 45px; background: var(--input-bg); border: 1px solid var(--input-border); border-radius: 12px; font-size: 0.9rem; color: var(--text-main); }
+  .search-icon { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+  .header-date-input { border: 1px solid var(--input-border); border-radius: 12px; padding: 0 15px; font-size: 0.85rem; outline: none; background: var(--input-bg); width: 150px; color: var(--text-main); }
 
   /* ADMIN PROFILE */
   .admin-profile-trigger { display: flex; align-items: center; gap: 12px; padding: 6px 12px; border-radius: 15px; cursor: pointer; transition: 0.2s; border: 1px solid transparent; }
-  .admin-profile-trigger:hover { background: white; border-color: #e2e8f0; }
-  .admin-dropdown { position: absolute; right: 40px; top: 85px; width: 260px; background: white; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.12); padding: 20px; z-index: 1000; border: 1px solid #f1f5f9; }
+  .admin-profile-trigger:hover { background: var(--card-bg); border-color: var(--border-color); }
+  .admin-dropdown { position: absolute; right: 40px; top: 85px; width: 260px; background: var(--card-bg); border-radius: 20px; box-shadow: var(--card-shadow); padding: 20px; z-index: 1000; border: 1px solid var(--border-color); color: var(--text-main); }
 
-  .section-card { background: white; padding: 28px; border-radius: 24px; box-shadow: var(--card-shadow); height: 100%; border: 1px solid #f1f5f9; }
-  .stat-card { background: white; padding: 26px; border-radius: 24px; box-shadow: var(--card-shadow); display: flex; justify-content: space-between; align-items: center; border: 1px solid #f1f5f9; transition: transform 0.3s ease; height: 100%; }
+  .section-card { background: var(--card-bg); padding: 28px; border-radius: 24px; box-shadow: var(--card-shadow); height: 100%; border: 1px solid var(--border-color); transition: all 0.3s ease; }
+  .stat-card { background: var(--card-bg); padding: 26px; border-radius: 24px; box-shadow: var(--card-shadow); display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border-color); transition: all 0.3s ease; height: 100%; }
   .stat-card:hover { transform: translateY(-5px); }
   .stat-icon { width: 50px; height: 50px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; flex-shrink: 0; }
   
-  .logout-overlay { position: absolute; inset: 0; background: rgba(248, 250, 252, 0.95); z-index: 1100; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(8px); }
-  .logout-modal { background: white; padding: 40px; border-radius: 32px; box-shadow: 0 20px 50px rgba(0,0,0,0.1); width: 100%; max-width: 450px; text-align: center; border: 1px solid #f1f5f9; }
+  .logout-overlay { position: absolute; inset: 0; background: var(--dash-bg); opacity: 0.95; z-index: 1100; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(8px); }
+  .logout-modal { background: var(--card-bg); padding: 40px; border-radius: 32px; box-shadow: var(--card-shadow); width: 100%; max-width: 450px; text-align: center; border: 1px solid var(--border-color); color: var(--text-main); }
 
   /* ACTION CARDS */
   .action-btn-card { 
@@ -76,9 +110,54 @@ const dashStyles = `
     display: flex; align-items: center; justify-content: center; 
     font-size: 1.4rem; flex-shrink: 0; 
   }
+
+  /* THEME TOGGLE SWITCH */
+  .theme-toggle-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--card-bg);
+    padding: 6px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--border-color);
+    margin-right: 15px;
+    cursor: pointer;
+    transition: 0.3s;
+    color: var(--text-main);
+  }
+  .theme-toggle-wrapper:hover {
+    border-color: var(--accent-cyan);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  }
+  .theme-switch {
+    width: 36px;
+    height: 20px;
+    background: var(--border-color);
+    border-radius: 10px;
+    position: relative;
+    transition: 0.3s;
+  }
+  .theme-switch.active {
+    background: var(--accent-cyan);
+  }
+  .theme-switch::after {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    background: white;
+    border-radius: 50%;
+    top: 2px;
+    left: 2px;
+    transition: 0.3s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  .theme-switch.active::after {
+    left: 18px;
+  }
 `;
 
-const Dashboard = ({ onLogout }) => {
+const Dashboard = ({ onLogout, theme, toggleTheme }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedDate, setSelectedDate] = useState(new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0]);
@@ -318,7 +397,14 @@ const Dashboard = ({ onLogout }) => {
             <input type="date" className="header-date-input" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
           </div>
 
-          <div className="position-relative">
+          <div className="d-flex align-items-center">
+            {/* Theme Toggle Switch */}
+            <div className="theme-toggle-wrapper" onClick={toggleTheme}>
+              {theme === 'dark' ? <MoonFill size={14} className="text-primary" /> : <Sun size={14} className="text-warning" />}
+              <div className={`theme-switch ${theme === 'dark' ? 'active' : ''}`}></div>
+            </div>
+
+            <div className="position-relative">
             <div className="admin-profile-trigger" onClick={(e) => { e.stopPropagation(); setShowAdminMenu(!showAdminMenu); }}>
               <div className="text-end d-none d-sm-block">
                 <div className="fw-bold small">{adminData.name}</div>
@@ -352,7 +438,8 @@ const Dashboard = ({ onLogout }) => {
               </div>
             )}
           </div>
-        </header>
+        </div>
+      </header>
 
         {renderContent()}
       </main>

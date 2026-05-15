@@ -64,114 +64,115 @@ const Payments = () => {
       {/* CSS for Printing - Hides UI elements during print */}
       <style>{`
         @media print {
-          .btn, .sidebar, .search-wrapper, .card-filter, header, .nav-item { display: none !important; }
+          .sidebar, .search-wrapper, .card-filter, header, .nav-item { display: none !important; }
           .main-content { padding: 0 !important; margin: 0 !important; width: 100% !important; }
           .card { box-shadow: none !important; border: 1px solid #eee !important; }
           body { background: white !important; }
+          .modal-overlay { background: transparent !important; position: absolute !important; }
+          .btn-close, .d-print-none { display: none !important; }
         }
       `}</style>
 
-      {/* Header */}
-      <div className="d-flex justify-content-between align-items-center mb-4 d-print-none">
-        <div>
-          <h2 className="fw-bold m-0">Payment Records</h2>
-          <p className="text-muted small">Manage student fees and RFID wallet transactions</p>
+      <div className={selectedTxn ? "d-print-none" : ""}>
+        {/* Header */}
+        <div className="d-flex justify-content-between align-items-center mb-4">
+          <div>
+            <h2 className="fw-bold m-0">Payment Records</h2>
+            <p className="text-muted small">Manage student fees and RFID wallet transactions</p>
+          </div>
         </div>
-        <button className="btn text-white rounded-pill px-4 shadow-sm" style={{ background: '#f59e0b' }} onClick={handlePrint}>
-          <i className="bi bi-printer me-2"></i>Print Statement
-        </button>
-      </div>
 
-      {/* Summary Cards */}
-      <div className="row g-4 mb-4 d-print-none">
-        <PaymentStat title="Total Collection" value={`₹${stats.totalCollection.toLocaleString('en-IN')}`} icon="cash-stack" color="#10b981" />
-        <PaymentStat title="Pending Dues" value={`₹${stats.pendingDues.toLocaleString('en-IN')}`} icon="exclamation-circle" color="#ef4444" />
-        <PaymentStat title="RFID Refills" value={`₹${stats.rfidRefills.toLocaleString('en-IN')}`} icon="credit-card" color="#3b82f6" />
-        <PaymentStat title="Total Transactions" value={stats.totalTransactions.toLocaleString('en-IN')} icon="list-check" color="#8b5cf6" />
-      </div>
+        {/* Summary Cards */}
+        <div className="row g-4 mb-4 d-print-none">
+          <PaymentStat title="Total Collection" value={`₹${stats.totalCollection.toLocaleString('en-IN')}`} icon="cash-stack" color="#10b981" />
+          <PaymentStat title="Pending Dues" value={`₹${stats.pendingDues.toLocaleString('en-IN')}`} icon="exclamation-circle" color="#ef4444" />
+          <PaymentStat title="RFID Refills" value={`₹${stats.rfidRefills.toLocaleString('en-IN')}`} icon="credit-card" color="#3b82f6" />
+          <PaymentStat title="Total Transactions" value={stats.totalTransactions.toLocaleString('en-IN')} icon="list-check" color="#8b5cf6" />
+        </div>
 
-      {/* Filter Section */}
-      <div className="card border-0 shadow-sm rounded-4 p-3 mb-4 bg-white card-filter d-print-none">
-        <div className="row g-3">
-          <div className="col-md-8">
-            <div className="position-relative">
-              <i className="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
-              <input 
-                className="form-control border-0 bg-light ps-5 rounded-3" 
-                placeholder="Search by student name or ID..." 
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+        {/* Filter Section */}
+        <div className="card border-0 shadow-sm rounded-4 p-3 mb-4 bg-white card-filter d-print-none">
+          <div className="row g-3">
+            <div className="col-md-8">
+              <div className="position-relative">
+                <i className="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
+                <input 
+                  className="form-control border-0 bg-light ps-5 rounded-3" 
+                  placeholder="Search by student name or ID..." 
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="col-md-4">
+              <select className="form-select border-0 bg-light rounded-3" onChange={(e) => setStatusFilter(e.target.value)}>
+                <option>All Status</option>
+                <option>Completed</option>
+                <option>Pending</option>
+              </select>
             </div>
           </div>
-          <div className="col-md-4">
-            <select className="form-select border-0 bg-light rounded-3" onChange={(e) => setStatusFilter(e.target.value)}>
-              <option>All Status</option>
-              <option>Completed</option>
-              <option>Pending</option>
-            </select>
-          </div>
         </div>
-      </div>
 
-      {/* Transactions Table */}
-      <div className="card border-0 shadow-sm rounded-4 overflow-hidden bg-white">
-        <div className="p-3 bg-light border-bottom d-none d-print-block">
-            <h4 className="fw-bold m-0 text-center">RFID SchoolHub - Payment Statement</h4>
-            <p className="text-center small text-muted m-0">Generated on: {new Date().toLocaleDateString()}</p>
+        {/* Transactions Table */}
+        <div className="card border-0 shadow-sm rounded-4 overflow-hidden bg-white">
+          <div className="p-3 bg-light border-bottom d-none d-print-block">
+              <h4 className="fw-bold m-0 text-center">RFID SchoolHub - Payment Statement</h4>
+              <p className="text-center small text-muted m-0">Generated on: {new Date().toLocaleDateString()}</p>
+          </div>
+          <table className="table align-middle mb-0 table-hover">
+            <thead className="bg-light">
+              <tr className="small text-muted text-uppercase">
+                <th className="ps-4 py-3 border-0">Student Info</th>
+                <th className="border-0">Description</th>
+                <th className="border-0">Amount</th>
+                <th className="border-0">Status</th>
+                <th className="border-0 text-end pe-4">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length > 0 ? filtered.map((txn, i) => (
+                <tr key={i} className="border-bottom">
+                  <td className="ps-4 py-3" data-label="Student">
+                    <div className="fw-bold small">{txn.student}</div>
+                    <div className="text-muted small" style={{fontSize: '11px'}}>{txn.stuId}</div>
+                  </td>
+                  <td data-label="Description">
+                    <div className="small">{txn.type}</div>
+                    <div className="text-muted small" style={{fontSize: '11px'}}>{txn.date}</div>
+                  </td>
+                  <td className="fw-bold small text-dark" data-label="Amount">{txn.amount}</td>
+                  <td data-label="Status">
+                    <span className={`badge rounded-pill px-3 ${
+                      txn.status === 'Completed' ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning'
+                    }`}>
+                      {txn.status}
+                    </span>
+                  </td>
+                  <td className="text-end pe-4" data-label="Action">
+                    <button className="btn btn-sm btn-light rounded-circle shadow-sm" onClick={() => handleViewDetails(txn)}>
+                      <i className="bi bi-eye text-primary"></i>
+                    </button>
+                  </td>
+                </tr>
+              )) : (
+                <tr>
+                  <td colSpan="5" className="text-center py-5 text-muted small">
+                    No payment records found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
-        <table className="table align-middle mb-0 table-hover">
-          <thead className="bg-light">
-            <tr className="small text-muted text-uppercase">
-              <th className="ps-4 py-3 border-0">Student Info</th>
-              <th className="border-0">Description</th>
-              <th className="border-0">Amount</th>
-              <th className="border-0">Status</th>
-              <th className="border-0 text-end pe-4 d-print-none">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length > 0 ? filtered.map((txn, i) => (
-              <tr key={i} className="border-bottom">
-                <td className="ps-4 py-3" data-label="Student">
-                  <div className="fw-bold small">{txn.student}</div>
-                  <div className="text-muted small" style={{fontSize: '11px'}}>{txn.stuId}</div>
-                </td>
-                <td data-label="Description">
-                  <div className="small">{txn.type}</div>
-                  <div className="text-muted small" style={{fontSize: '11px'}}>{txn.date}</div>
-                </td>
-                <td className="fw-bold small text-dark" data-label="Amount">{txn.amount}</td>
-                <td data-label="Status">
-                  <span className={`badge rounded-pill px-3 ${
-                    txn.status === 'Completed' ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning'
-                  }`}>
-                    {txn.status}
-                  </span>
-                </td>
-                <td className="text-end pe-4 d-print-none" data-label="Action">
-                  <button className="btn btn-sm btn-light rounded-circle shadow-sm" onClick={() => handleViewDetails(txn)}>
-                    <i className="bi bi-eye text-primary"></i>
-                  </button>
-                </td>
-              </tr>
-            )) : (
-              <tr>
-                <td colSpan="5" className="text-center py-5 text-muted small">
-                  No payment records found.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
       </div>
 
       {/* Transaction Details Modal (Overlay) */}
       {selectedTxn && (
-        <div className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center z-3" style={{ background: 'rgba(0,0,0,0.5)' }}>
+        <div className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center z-3 modal-overlay" style={{ background: 'rgba(0,0,0,0.5)' }}>
           <div className="card border-0 rounded-4 shadow-lg p-4 animate-fade-in" style={{ width: '400px' }}>
             <div className="d-flex justify-content-between align-items-center mb-4">
               <h5 className="fw-bold m-0">Transaction Details</h5>
-              <button className="btn-close" onClick={() => setSelectedTxn(null)}></button>
+              <button className="btn-close d-print-none" onClick={() => setSelectedTxn(null)}></button>
             </div>
             
             <div className="text-center mb-4 py-3 bg-light rounded-4">
@@ -180,7 +181,7 @@ const Payments = () => {
                 <span className="badge bg-success-subtle text-success">{selectedTxn.status}</span>
             </div>
 
-            <div className="small">
+            <div className="small mb-4">
                 <div className="d-flex justify-content-between py-2 border-bottom">
                     <span className="text-muted">Student Name</span>
                     <span className="fw-bold">{selectedTxn.student}</span>
@@ -203,7 +204,10 @@ const Payments = () => {
                 </div>
             </div>
 
-            <button className="btn btn-dark w-100 rounded-pill mt-4" onClick={() => setSelectedTxn(null)}>Close Receipt</button>
+            <button className="btn text-white w-100 rounded-pill mb-2 d-print-none" style={{ background: '#f59e0b' }} onClick={handlePrint}>
+              <i className="bi bi-printer me-2"></i>Print Receipt
+            </button>
+            <button className="btn btn-dark w-100 rounded-pill d-print-none" onClick={() => setSelectedTxn(null)}>Close Receipt</button>
           </div>
         </div>
       )}

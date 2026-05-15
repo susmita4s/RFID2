@@ -2,7 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { Html5QrcodeScanner } from "html5-qrcode";
 
-const ParentPortal = ({ onLogout, isDarkMode }) => {
+import { Sun, MoonFill } from 'react-bootstrap-icons';
+
+const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [rechargeAmount, setRechargeAmount] = useState(500);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -281,10 +283,10 @@ const ParentPortal = ({ onLogout, isDarkMode }) => {
   };
 
   const colors = {
-    text: isDarkMode ? '#f8f9fa' : '#212529',
-    muted: isDarkMode ? '#adb5bd' : '#6c757d',
-    card: isDarkMode ? 'rgba(33, 37, 41, 0.7)' : '#ffffff',
-    border: isDarkMode ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
+    text: theme === 'dark' ? '#f8f9fa' : '#212529',
+    muted: theme === 'dark' ? '#adb5bd' : '#6c757d',
+    card: theme === 'dark' ? 'rgba(33, 37, 41, 0.7)' : '#ffffff',
+    border: theme === 'dark' ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
     accent: '#085b45'
   };
 
@@ -317,7 +319,7 @@ const ParentPortal = ({ onLogout, isDarkMode }) => {
   }
 
   return (
-    <div className={`min-vh-100 ${isDarkMode ? 'bg-dark' : 'bg-light'}`} style={{ transition: 'all 0.4s ease', color: colors.text }}>
+    <div className={`min-vh-100 ${theme === 'dark' ? 'bg-dark' : 'bg-light'}`} style={{ transition: 'all 0.4s ease', color: colors.text }}>
       
       <style>{`
         .touch-card { transition: all 0.3s ease; }
@@ -332,12 +334,57 @@ const ParentPortal = ({ onLogout, isDarkMode }) => {
         .toast-container { position: fixed; top: 80px; right: 20px; z-index: 9999; }
         .animate-pop { animation: popIn 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55); }
         @keyframes popIn { from { transform: scale(0.8) translateX(50px); opacity: 0; } to { transform: scale(1) translateX(0); opacity: 1; } }
+
+        /* THEME TOGGLE SWITCH */
+        .theme-toggle-wrapper {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          background: rgba(255, 255, 255, 0.05);
+          padding: 6px 12px;
+          border-radius: 20px;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          margin-right: 15px;
+          cursor: pointer;
+          transition: 0.3s;
+          color: white;
+        }
+        .theme-toggle-wrapper:hover {
+          background: rgba(255, 255, 255, 0.1);
+          border-color: rgba(255, 255, 255, 0.2);
+        }
+        .theme-switch {
+          width: 36px;
+          height: 20px;
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 10px;
+          position: relative;
+          transition: 0.3s;
+        }
+        .theme-switch.active {
+          background: #0dcaf0; /* info color */
+        }
+        .theme-switch::after {
+          content: '';
+          position: absolute;
+          width: 16px;
+          height: 16px;
+          background: white;
+          border-radius: 50%;
+          top: 2px;
+          left: 2px;
+          transition: 0.3s;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .theme-switch.active::after {
+          left: 18px;
+        }
       `}</style>
 
       {/* TOAST NOTIFICATIONS */}
       <div className="toast-container">
         {notifications.map(n => (
-          <div key={n.id} className="card border-0 shadow-lg p-3 mb-2 animate-pop" style={{...cardStyle, minWidth: '250px', background: isDarkMode ? '#2c3034' : '#fff'}}>
+          <div key={n.id} className="card border-0 shadow-lg p-3 mb-2 animate-pop" style={{...cardStyle, minWidth: '250px', background: theme === 'dark' ? '#2c3034' : '#fff'}}>
             <div className="d-flex align-items-center">
               <i className="bi bi-info-circle-fill text-info me-3 fs-4"></i>
               <div>
@@ -375,9 +422,17 @@ const ParentPortal = ({ onLogout, isDarkMode }) => {
             ))}
           </div>
 
-          <button onClick={onLogout} className="btn btn-outline-danger btn-sm rounded-pill px-3 fw-bold">
-            <i className="bi bi-box-arrow-right me-2"></i>Logout
-          </button>
+          <div className="d-flex align-items-center">
+            {/* Theme Toggle Switch */}
+            <div className="theme-toggle-wrapper" onClick={toggleTheme}>
+              {theme === 'dark' ? <MoonFill size={14} className="text-info" /> : <Sun size={14} className="text-warning" />}
+              <div className={`theme-switch ${theme === 'dark' ? 'active' : ''}`}></div>
+            </div>
+
+            <button onClick={onLogout} className="btn btn-outline-danger btn-sm rounded-pill px-3 fw-bold">
+              <i className="bi bi-box-arrow-right me-2"></i>Logout
+            </button>
+          </div>
         </div>
       </nav>
 

@@ -88,15 +88,16 @@ async function seed() {
     console.log('✅ Created library logs');
 
     // ── Create Payments ───────────────────────────────────────────────────────
+    await prisma.feeTransaction.deleteMany();
     for (const student of students) {
-      await prisma.payment.createMany({
+      await prisma.feeTransaction.createMany({
         data: [
-          { studentId: student.id, amount: 5000, type: 'tuition',  description: 'Q1 Tuition Fee', status: 'paid',    paidAt: new Date() },
-          { studentId: student.id, amount: 1500, type: 'bus',      description: 'Bus Fee April',  status: 'pending', dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000) },
+          { studentId: student.id, amount: 5000, paymentType: 'Cash', description: 'Q1 Tuition Fee', status: 'Completed' },
+          { studentId: student.id, amount: 1500, paymentType: 'Online', description: 'Bus Fee April', status: 'Pending' },
         ],
       });
     }
-    console.log('✅ Created payment records');
+    console.log('✅ Created fee transaction records');
 
     console.log('\n🎉 Database seeded successfully!');
     console.log('─────────────────────────────────');
