@@ -1,6 +1,5 @@
 const express = require('express');
 const crypto  = require('crypto');
-const { PrismaClient } = require('@prisma/client');
 const { verifyToken } = require('./auth');
 const { parseISO, startOfDay, addMinutes } = require('date-fns');
 const multer = require('multer');
@@ -9,8 +8,7 @@ const { sendActivationEmail } = require('../mailer');
 const upload = multer({ storage });
 
 const router = express.Router();
-const prisma = new PrismaClient();
-
+const prisma = require('../prismaClient');
 // ── Helper: Generate secure activation token ──────────────────────────────────
 const generateActivationToken = () => crypto.randomBytes(32).toString('hex');
 

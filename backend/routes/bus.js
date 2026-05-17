@@ -1,10 +1,8 @@
 const express = require('express');
-const { PrismaClient } = require('@prisma/client');
 const { verifyToken } = require('./auth');
 
 const router = express.Router();
-const prisma = new PrismaClient();
-
+const prisma = require('../prismaClient');
 // Helper to get socket.io instance
 const getIo = (req) => req.app.get('io');
 
@@ -45,7 +43,7 @@ router.get('/boarding-activity', verifyToken, async (req, res) => {
         student: { isActive: true }
       },
       include: {
-        student: { select: { fullName: true, studentId: true, rollNumber: true, phoneNumber: true } },
+        student: { select: { fullName: true, studentId: true, rollNumber: true, phoneNumber: true, profileImage: true } },
         bus: { select: { busNumber: true } }
       },
       orderBy: { boardedAt: 'desc' },
@@ -92,7 +90,7 @@ router.post('/board-student', verifyToken, async (req, res) => {
         status: 'Boarded'
       },
       include: {
-        student: { select: { fullName: true, studentId: true, rollNumber: true } },
+        student: { select: { fullName: true, studentId: true, rollNumber: true, profileImage: true } },
         bus: { select: { busNumber: true } }
       }
     });
@@ -161,7 +159,7 @@ router.get('/:id', verifyToken, async (req, res) => {
       include: {
         boardingLogs: {
           where: { status: 'Boarded' },
-          include: { student: { select: { fullName: true, rollNumber: true, phoneNumber: true } } }
+          include: { student: { select: { fullName: true, rollNumber: true, phoneNumber: true, profileImage: true } } }
         }
       }
     });

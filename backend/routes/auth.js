@@ -1,12 +1,10 @@
 const express = require('express');
 const bcrypt  = require('bcryptjs');
 const jwt     = require('jsonwebtoken');
-const { PrismaClient } = require('@prisma/client');
 const { sendOTP, sendResetPasswordOTP } = require('../mailer');
 
 const router = express.Router();
-const prisma = new PrismaClient();
-
+const prisma = require('../prismaClient');
 // ── Helper: Generate OTP ──────────────────────────────────────────────────────
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString(); // 6 digits
 
@@ -287,6 +285,12 @@ router.post('/login', async (req, res) => {
   try {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) return res.status(401).json({ error: 'Invalid email or password.' });
+
+    // Explicitly prevent Parents from logging in via the Admin/Staff endpoint
+    if (user.role === 'parent') {
+      return res.status(403).json({ error: 'Access denied. Parents must log in through the Parent tab.' });
+    }
+
 
     // Block unverified parents
     if (!user.isVerified) {

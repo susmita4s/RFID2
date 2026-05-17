@@ -155,7 +155,7 @@ const BusBoardingInner = () => {
         <div className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" style={{background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)', zIndex: 2000}} onClick={() => setSelectedStudent(null)}>
           <div className="bg-white rounded-4 overflow-hidden shadow-lg" style={{width: '400px', animation: 'slideUp 0.3s ease-out'}} onClick={e => e.stopPropagation()}>
             <div className="p-4 text-center text-white" style={{background: 'linear-gradient(135deg, #111827 0%, #1e293b 100%)'}}>
-              <img src={`https://i.pravatar.cc/150?u=${selectedStudent.studentId}`} className="rounded-circle border border-4 border-white mb-3" style={{width: 80, height: 80}} alt="" />
+              <img src={selectedStudent.student.profileImage || `https://ui-avatars.com/api/?name=${selectedStudent.student.fullName || 'Student'}&background=random`} className="rounded-circle border border-4 border-white mb-3" style={{width: 80, height: 80, objectFit: 'cover'}} alt="" />
               <h4 className="m-0 fw-bold">{selectedStudent.student.fullName}</h4>
               <div className="opacity-75 small">{selectedStudent.student.studentId || selectedStudent.student.rollNumber}</div>
             </div>
@@ -271,7 +271,7 @@ const BusBoardingInner = () => {
                    onClick={() => setSelectedStudent(log)}>
                 <div className="d-flex justify-content-between align-items-center">
                   <div className="d-flex align-items-center gap-2">
-                    <img src={`https://i.pravatar.cc/150?u=${log.studentId}`} className="rounded-circle" style={{width: 32, height: 32}} alt="" />
+                    <img src={log.student.profileImage || `https://ui-avatars.com/api/?name=${log.student.fullName || 'Student'}&background=random`} className="rounded-circle" style={{width: 32, height: 32, objectFit: 'cover'}} alt="" />
                     <div>
                       <div className="fw-bold small text-dark">{log.student.fullName}</div>
                       <div className="text-muted" style={{fontSize: '10px'}}>{log.student.studentId || log.student.rollNumber}</div>

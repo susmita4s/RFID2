@@ -2,13 +2,11 @@ const express = require('express');
 const bcrypt  = require('bcryptjs');
 const crypto  = require('crypto');
 const jwt     = require('jsonwebtoken');
-const { PrismaClient } = require('@prisma/client');
 const { sendActivationEmail, sendOTP } = require('../mailer');
 const { verifyToken } = require('./auth');
 
 const router = express.Router();
-const prisma = new PrismaClient();
-
+const prisma = require('../prismaClient');
 // ── Helper: Generate secure 64-char hex token ────────────────────────────────
 const generateActivationToken = () => crypto.randomBytes(32).toString('hex');
 
@@ -339,7 +337,13 @@ router.get('/student-details', verifyToken, async (req, res) => {
   try {
     // Fetch student using loggedInParentId
     const student = await prisma.student.findFirst({
-      where: { userId: req.user.id }
+      where: { userId: req.user.id },
+      include: { 
+        rfidWallet: true,
+        activities: { orderBy: { createdAt: 'desc' }, take: 10 },
+        attendances: { orderBy: { date: 'desc' } },
+        boardingLogs: { orderBy: { boardedAt: 'desc' }, take: 10, include: { bus: true } }
+      }
     });
 
     if (!student) return res.status(404).json({ error: 'No student linked to this parent account.' });

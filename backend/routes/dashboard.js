@@ -1,11 +1,9 @@
 const express = require('express');
-const { PrismaClient } = require('@prisma/client');
 const { verifyToken } = require('./auth');
 const { startOfDay, endOfDay } = require('date-fns');
 
 const router = express.Router();
-const prisma = new PrismaClient();
-
+const prisma = require('../prismaClient');
 // ── GET /api/dashboard/stats ──────────────────────────────────────────────────
 router.get('/stats', verifyToken, async (req, res) => {
   try {

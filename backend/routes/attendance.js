@@ -1,10 +1,8 @@
 const express = require('express');
-const { PrismaClient } = require('@prisma/client');
 const { verifyToken } = require('./auth');
 
 const router = express.Router();
-const prisma = new PrismaClient();
-
+const prisma = require('../prismaClient');
 // Helper for local date
 const getLocalDateBounds = (dateString) => {
   const date = dateString ? new Date(dateString) : new Date();
@@ -47,6 +45,7 @@ router.get('/', verifyToken, async (req, res) => {
         id: student.studentId || `STU-${student.id}`,
         name: student.fullName,
         class: student.className,
+        profileImage: student.profileImage,
         checkIn: attendance?.checkIn ? new Date(attendance.checkIn).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '--:--',
         checkOut: attendance?.checkOut ? new Date(attendance.checkOut).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '--:--',
         status: attendance?.status || 'absent',

@@ -1,4 +1,11 @@
 {
+  "name": "rfid-school-system",
+  "version": "1.0.0",
+  "description": "RFID School Management System Root",
+  "scripts": {
+    "start": "node start-project.js",
+    "dev": "node start-project.js"
+  },
   "dependencies": {
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",

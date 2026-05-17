@@ -5,7 +5,7 @@ const razorpay = require('../config/razorpay');
 
 const router = express.Router();
 const prisma = require('../prismaClient');
-// ── POST /api/wallet/create-order ─────────────────────────────────────────────
+// ── POST /api/payment/create-order ───────────────────────────────────────────
 router.post('/create-order', verifyToken, async (req, res) => {
   try {
     const { amount, studentId } = req.body;
@@ -13,10 +13,15 @@ router.post('/create-order', verifyToken, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Amount and Student ID required' });
     }
 
+    const parsedAmount = parseFloat(amount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      return res.status(400).json({ success: false, message: 'Invalid recharge amount' });
+    }
+
     const options = {
-      amount: amount * 100, // Amount is in currency subunits (paise)
+      amount: Math.round(parsedAmount * 100), // Amount in paise
       currency: "INR",
-      receipt: `receipt_order_${Date.now()}`,
+      receipt: `receipt_recharge_${Date.now()}`,
     };
 
     const order = await razorpay.orders.create(options);
@@ -31,16 +36,16 @@ router.post('/create-order', verifyToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Create Order Error:', error);
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    res.status(500).json({ success: false, message: 'Internal server error during order creation' });
   }
 });
 
-// ── POST /api/wallet/verify-payment ───────────────────────────────────────────
-router.post('/verify-payment', verifyToken, async (req, res) => {
-  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, amount, studentId, paymentMethod } = req.body;
+// ── POST /api/payment/verify ──────────────────────────────────────────────────
+router.post('/verify', verifyToken, async (req, res) => {
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature, amount, studentId } = req.body;
 
   if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-    return res.status(400).json({ success: false, message: 'Missing payment details' });
+    return res.status(400).json({ success: false, message: 'Missing payment signature or details' });
   }
 
   try {
@@ -57,7 +62,7 @@ router.post('/verify-payment', verifyToken, async (req, res) => {
       return res.status(400).json({ success: false, message: 'This payment has already been successfully processed.' });
     }
 
-    // 2. Verify signature
+    // 2. Verify signature using HMAC SHA256
     const body = razorpay_order_id + "|" + razorpay_payment_id;
     const expectedSignature = crypto
       .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
@@ -86,7 +91,7 @@ router.post('/verify-payment', verifyToken, async (req, res) => {
         create: { studentId: Number(studentId), balance: parseFloat(amount) },
       });
 
-      // Log transaction history with structured metadata
+      // Log detailed transaction history with packed metadata
       const transaction = await tx.walletTransaction.create({
         data: {
           studentId: Number(studentId),
@@ -97,7 +102,19 @@ router.post('/verify-payment', verifyToken, async (req, res) => {
         }
       });
 
-      return { wallet, transaction };
+      // Log payment history under the Payment table
+      const paymentLog = await tx.payment.create({
+        data: {
+          studentId: Number(studentId),
+          amount: parseFloat(amount),
+          type: 'other',
+          description: `Wallet Recharge (Payment ID: ${razorpay_payment_id})`,
+          status: 'paid',
+          paidAt: new Date(),
+        }
+      });
+
+      return { wallet, transaction, paymentLog };
     });
 
     res.json({
@@ -110,28 +127,6 @@ router.post('/verify-payment', verifyToken, async (req, res) => {
   } catch (error) {
     console.error('Verify Payment Error:', error);
     res.status(500).json({ success: false, message: 'Internal server error during verification' });
-  }
-});
-
-// ── GET /api/wallet/transactions ─────────────────────────────────────────────
-router.get('/transactions', verifyToken, async (req, res) => {
-  const { studentId } = req.query;
-
-  if (!studentId) {
-    return res.status(400).json({ success: false, message: 'Student ID required' });
-  }
-
-  try {
-    const transactions = await prisma.walletTransaction.findMany({
-      where: { studentId: Number(studentId) },
-      orderBy: { createdAt: 'desc' },
-      take: 20 // Return the 20 most recent transactions
-    });
-
-    res.json({ success: true, transactions });
-  } catch (error) {
-    console.error('Fetch Transactions Error:', error);
-    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
 

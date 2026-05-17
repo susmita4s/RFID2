@@ -1,6 +1,9 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { io } from 'socket.io-client';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import { Html5QrcodeScanner } from "html5-qrcode";
+import Meetings from './Meetings';
+
+const BACKEND = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
 
 
@@ -13,10 +16,7 @@ const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
   const [notifications, setNotifications] = useState([]);
 
   // --- NEW: RAZORPAY & WALLET STATE ---
-  const [upiId, setUpiId] = useState("");
-  const [showQrScanner, setShowQrScanner] = useState(false);
   const [transactions, setTransactions] = useState([]);
-  const scannerRef = useRef(null);
 
   // --- NEW: RFID SCANNER STATE ---
   const [rfidInput, setRfidInput] = useState("");
@@ -28,6 +28,137 @@ const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
   const [student, setStudent] = useState(null);
   const [loadingStudent, setLoadingStudent] = useState(true);
   const [errorStudent, setErrorStudent] = useState('');
+
+  // --- CHAT + REAL-TIME STATE ---
+  const [activeChat, setActiveChat] = useState(null); // 'admin_chat' | 'teacher_chat' | null
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatSending, setChatSending] = useState(false);
+  const [teacherContactId, setTeacherContactId] = useState(null);
+  const [adminContactId, setAdminContactId] = useState(null);
+  const messagesEndRef = useRef(null);
+  const activeChatRef = useRef(null);
+  const socketRef = useRef(null);
+
+  // --- NOTIFICATION STATE ---
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
+  const [chatNotifications, setChatNotifications] = useState([]);
+  const [showNotifBell, setShowNotifBell] = useState(false);
+  const notifBellRef = useRef(null);
+
+  // Keep activeChatRef in sync for socket callbacks
+  useEffect(() => { activeChatRef.current = activeChat; }, [activeChat]);
+
+  // Auto-scroll to bottom of chat
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
+
+  // Socket.IO setup for parent
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const socket = io(BACKEND, { auth: { token }, transports: ['websocket', 'polling'] });
+    socketRef.current = socket;
+
+    socket.on('newChatMessage', (msg) => {
+      const currentChat = activeChatRef.current;
+      if (currentChat && msg.chatType === currentChat) {
+        setChatMessages(prev => {
+          if (prev.some(m => m.id === msg.id)) return prev;
+          return [...prev, msg];
+        });
+      }
+    });
+
+    socket.on('newNotification', (notif) => {
+      addNotification(notif.title, notif.message);
+      setChatNotifications(prev => [notif, ...prev].slice(0, 20));
+      setChatUnreadCount(prev => prev + 1);
+    });
+
+    return () => socket.disconnect();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Close notification bell on outside click
+  useEffect(() => {
+    const handler = (e) => {
+      if (notifBellRef.current && !notifBellRef.current.contains(e.target)) {
+        setShowNotifBell(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  // Fetch teacher and admin contact IDs on mount
+  useEffect(() => {
+    const fetchContacts = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${BACKEND}/api/chat/contacts`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (res.ok && Array.isArray(data)) {
+          const admin = data.find(c => c.chatType === 'admin_chat');
+          const teacher = data.find(c => c.chatType === 'teacher_chat');
+          if (admin) setAdminContactId(admin.id);
+          if (teacher) setTeacherContactId(teacher.id);
+          // Sum unread
+          const total = data.reduce((acc, c) => acc + (c.unseenCount || 0), 0);
+          setChatUnreadCount(total);
+        }
+      } catch (e) {
+        console.error('Error fetching chat contacts:', e);
+      }
+    };
+    fetchContacts();
+  }, []);
+
+  // Fetch persistent notifications from backend
+  useEffect(() => {
+    const fetchNotifs = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${BACKEND}/api/chat/notifications`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setChatNotifications(data.notifications || []);
+          setChatUnreadCount(data.unreadCount || 0);
+        }
+      } catch (e) {}
+    };
+    fetchNotifs();
+    const interval = setInterval(fetchNotifs, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Polling Chat Messages (fallback alongside Socket.IO)
+  useEffect(() => {
+    let interval;
+    if (activeChat) {
+      const fetchChatMessages = async () => {
+        try {
+          const token = localStorage.getItem('token');
+          const otherId = activeChat === 'admin_chat' ? adminContactId : teacherContactId;
+          const otherParam = otherId ? `&otherUserId=${otherId}` : '';
+          const res = await fetch(`${BACKEND}/api/chat/messages?chatType=${activeChat}${otherParam}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const data = await res.json();
+          if (res.ok) setChatMessages(data);
+        } catch (e) {
+          console.error('Error polling chat:', e);
+        }
+      };
+      fetchChatMessages();
+      interval = setInterval(fetchChatMessages, 5000);
+    }
+    return () => clearInterval(interval);
+  }, [activeChat, adminContactId, teacherContactId]);
 
   const addNotification = useCallback((title, msg) => {
     const id = Date.now();
@@ -96,25 +227,30 @@ const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
         
         if (res.ok && data.student) {
           const dbStudent = data.student;
+          const totalAtt = dbStudent.attendances ? dbStudent.attendances.length : 0;
+          const presentAtt = dbStudent.attendances ? dbStudent.attendances.filter(att => att.status === 'present' || att.status === 'late').length : 0;
+          const attPercentage = totalAtt > 0 ? `${((presentAtt / totalAtt) * 100).toFixed(1)}%` : "100.0%";
+
           setStudent({
             name: dbStudent.fullName || "N/A",
-            id: dbStudent.id, // Store real DB ID
+            id: dbStudent.id,
             studentId: dbStudent.studentId || "N/A",
             class: dbStudent.className || "N/A",
             rollNo: dbStudent.rollNumber || "N/A",
             house: "Blue House",
-            attendance: "94.2%",
+            attendance: attPercentage,
             wallet: dbStudent.rfidWallet ? dbStudent.rfidWallet.balance : 0,
             bloodGroup: "B+",
             emergencyContact: dbStudent.phoneNumber || "N/A",
             classTeacher: "Ms. Anjali Verma",
-            photo: dbStudent.profileImage || "https://i.pravatar.cc/150?u=1",
+            photo: dbStudent.profileImage || `https://ui-avatars.com/api/?name=${dbStudent.fullName || 'Student'}&background=random`,
             performance: "Grade: A (Excellent)",
-            rank: "4th in Class",
+            isActive: dbStudent.isActive,
             busRoute: "Route 14 - Sector 5",
             lastExam: "Mathematics (92/100)",
             medicalNote: "No Known Allergies",
-            rfid: dbStudent.rfidTag || "N/A"
+            rfid: dbStudent.rfidTag || "N/A",
+            rawDbStudent: dbStudent
           });
 
           // Fetch Transactions
@@ -135,41 +271,130 @@ const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
 
 
 
-  // QR Scanner Initialization
-  useEffect(() => {
-    if (showQrScanner && !scannerRef.current) {
-      const scanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
-      scanner.render((decodedText) => {
-        try {
-          const qrData = JSON.parse(decodedText);
-          if (qrData.rfid_tag) {
-            setRfidInput(qrData.rfid_tag);
-            handleScanRfid(qrData.rfid_tag);
-            setShowQrScanner(false);
-            scanner.clear();
-          }
-        } catch (e) {
-          console.error("Invalid QR Format");
-        }
-      }, (error) => {
-        // Handle scan error
-      });
-      scannerRef.current = scanner;
-    }
-    return () => {
-      if (scannerRef.current) {
-        scannerRef.current.clear();
-        scannerRef.current = null;
-      }
-    };
-  }, [showQrScanner, handleScanRfid]);
 
-  const recentActivities = [
-    { time: "02:15 PM", action: "Library", desc: "Returned 'Java Programming'", icon: "book-half", color: "#6f42c1" },
-    { time: "12:45 PM", action: "Canteen", desc: "Lunch Payment: ₹80", icon: "cart-fill", color: "#fd7e14" },
-    { time: "08:10 AM", action: "Campus Entry", desc: "Main Gate - RFID Scanned", icon: "door-open-fill", color: "#198754" },
-    { time: "Yesterday", action: "Bus", desc: "Dropped at Sector 5", icon: "bus-front", color: "#0d7c88" }
-  ];
+
+  const recentActivities = useMemo(() => {
+    if (!student || !student.rawDbStudent) {
+      return [
+        { time: "02:15 PM", action: "Library", desc: "Returned 'Java Programming'", icon: "book-half", color: "#6f42c1" },
+        { time: "12:45 PM", action: "Canteen", desc: "Lunch Payment: ₹80", icon: "cart-fill", color: "#fd7e14" },
+        { time: "08:10 AM", action: "Campus Entry", desc: "Main Gate - RFID Scanned", icon: "door-open-fill", color: "#198754" },
+        { time: "Yesterday", action: "Bus", desc: "Dropped at Sector 5", icon: "bus-front", color: "#0d7c88" }
+      ];
+    }
+
+    const formatActivityTime = (dateString) => {
+      if (!dateString) return "";
+      const d = new Date(dateString);
+      const now = new Date();
+      
+      const isToday = d.toDateString() === now.toDateString();
+      const yesterday = new Date(now);
+      yesterday.setDate(now.getDate() - 1);
+      const isYesterday = d.toDateString() === yesterday.toDateString();
+      
+      const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      if (isToday) return timeStr;
+      if (isYesterday) return `Yesterday, ${timeStr}`;
+      return `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })}, ${timeStr}`;
+    };
+
+    const list = [];
+    const dbStudent = student.rawDbStudent;
+
+    // 1. Add StudentActivity logs
+    if (dbStudent.activities) {
+      dbStudent.activities.forEach(act => {
+        let icon = "info-circle";
+        let color = "#0d6efd";
+        if (act.action === "CREATED") {
+          icon = "person-check-fill";
+          color = "#0d6efd";
+        } else if (act.action === "RFID_ASSIGNED") {
+          icon = "broadcast";
+          color = "#fd7e14";
+        } else if (act.action === "UPDATED") {
+          icon = "pencil-square";
+          color = "#6c757d";
+        }
+        list.push({
+          timestamp: new Date(act.createdAt).getTime(),
+          time: formatActivityTime(act.createdAt),
+          action: act.action === "CREATED" ? "Registration" : act.action === "RFID_ASSIGNED" ? "RFID Assignment" : act.action,
+          desc: act.description,
+          icon,
+          color
+        });
+      });
+    }
+
+    // 2. Add Attendance logs
+    if (dbStudent.attendances) {
+      dbStudent.attendances.forEach(att => {
+        if (att.checkIn) {
+          list.push({
+            timestamp: new Date(att.checkIn).getTime(),
+            time: formatActivityTime(att.checkIn),
+            action: "Campus Entry",
+            desc: `Main Gate - Scanned (Status: ${att.status})`,
+            icon: "door-open-fill",
+            color: "#198754"
+          });
+        }
+        if (att.checkOut) {
+          list.push({
+            timestamp: new Date(att.checkOut).getTime(),
+            time: formatActivityTime(att.checkOut),
+            action: "Campus Exit",
+            desc: "Main Gate - Scanned Out",
+            icon: "door-closed-fill",
+            color: "#dc3545"
+          });
+        }
+      });
+    }
+
+    // 3. Add Boarding logs (Bus)
+    if (dbStudent.boardingLogs) {
+      dbStudent.boardingLogs.forEach(log => {
+        list.push({
+          timestamp: new Date(log.boardedAt).getTime(),
+          time: formatActivityTime(log.boardedAt),
+          action: "Bus Boarding",
+          desc: `Boarded Bus ${log.bus?.busNumber || ""} at ${log.locationName}`,
+          icon: "bus-front",
+          color: "#0d7c88"
+        });
+      });
+    }
+
+    // 4. Add Wallet Transactions (Recharges/Payments)
+    if (transactions) {
+      transactions.forEach(tx => {
+        const isRecharge = tx.source === "RECHARGE";
+        list.push({
+          timestamp: new Date(tx.createdAt).getTime(),
+          time: formatActivityTime(tx.createdAt),
+          action: isRecharge ? "Wallet Recharge" : "Canteen Payment",
+          desc: isRecharge ? `Recharged ₹${tx.amount}` : `Lunch Payment: ₹${tx.amount}`,
+          icon: isRecharge ? "wallet2" : "cart-fill",
+          color: isRecharge ? "#198754" : "#fd7e14"
+        });
+      });
+    }
+
+    // Sort chronologically (newest first)
+    list.sort((a, b) => b.timestamp - a.timestamp);
+
+    // Return compiled list or fallback if empty
+    if (list.length > 0) {
+      return list.slice(0, 6);
+    }
+
+    return [
+      { time: "Just Now", action: "Status", desc: "No recent transactions or activity logs found.", icon: "info-circle", color: "#6c757d" }
+    ];
+  }, [student, transactions]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -196,7 +421,7 @@ const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
       const token = localStorage.getItem('token');
       
       // 1. Create Order
-      const orderRes = await fetch("http://localhost:5000/api/wallet/create-order", {
+      const orderRes = await fetch("http://localhost:5000/api/payment/create-order", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
@@ -212,7 +437,7 @@ const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
 
       // 2. Open Razorpay Checkout
       const options = {
-        key: process.env.VITE_RAZORPAY_KEY_ID || "rzp_test_your_key_id",
+        key: orderData.key || process.env.REACT_APP_RAZORPAY_KEY_ID || "rzp_test_your_key_id",
         amount: orderData.order.amount,
         currency: orderData.order.currency,
         name: "EduScan School Management",
@@ -220,11 +445,17 @@ const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
         order_id: orderData.order.id,
         prefill: {
           contact: student ? student.emergencyContact : "",
-          vpa: upiId 
+          email: JSON.parse(localStorage.getItem('user') || '{}').email || "parent@example.com",
+        },
+        method: {
+          upi: true,
+          card: true,
+          netbanking: true,
+          wallet: true
         },
         handler: async (response) => {
           // 3. Verify Payment
-          const verifyRes = await fetch("http://localhost:5000/api/wallet/verify-payment", {
+          const verifyRes = await fetch("http://localhost:5000/api/payment/verify", {
             method: "POST",
             headers: { 
               "Content-Type": "application/json",
@@ -233,8 +464,7 @@ const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
             body: JSON.stringify({
               ...response,
               amount: targetAmount,
-              studentId: targetStudentId,
-              paymentMethod: upiId ? `UPI (${upiId})` : "Razorpay Checkout"
+              studentId: targetStudentId
             })
           });
           const verifyData = await verifyRes.json();
@@ -271,7 +501,70 @@ const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
 
 
   const handleAdminChat = () => {
-    alert("Initiating secure chat with School Administrator...");
+    setActiveChat('admin_chat');
+    setChatMessages([]);
+    if (adminContactId) markChatSeen('admin_chat', adminContactId);
+  };
+
+  const handleTeacherChat = () => {
+    setActiveChat('teacher_chat');
+    setChatMessages([]);
+    if (teacherContactId) markChatSeen('teacher_chat', teacherContactId);
+  };
+
+  const handleSendChatMessage = async () => {
+    if (!chatInput.trim() || chatSending) return;
+    const msgText = chatInput.trim();
+    setChatInput('');
+    setChatSending(true);
+    try {
+      const token = localStorage.getItem('token');
+      const receiverId = activeChat === 'admin_chat' ? adminContactId : teacherContactId;
+      const res = await fetch(`${BACKEND}/api/chat/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ chatType: activeChat, message: msgText, receiverId })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setChatMessages(prev => {
+          if (prev.some(m => m.id === data.id)) return prev;
+          return [...prev, data];
+        });
+      }
+    } catch (err) {
+      console.error('Error sending chat:', err);
+      addNotification('Error', 'Failed to send message.');
+    } finally {
+      setChatSending(false);
+    }
+  };
+
+  // Mark chat messages as seen when opening a chat
+  const markChatSeen = async (chatType, senderId) => {
+    if (!senderId) return;
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`${BACKEND}/api/chat/mark-seen`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ chatType, senderId })
+      });
+    } catch (e) {}
+  };
+
+  // Mark all chat notifications read
+  const markAllChatNotifsRead = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`${BACKEND}/api/chat/notifications/mark-read`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({})
+      });
+      setChatNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+      setChatUnreadCount(0);
+    } catch (e) {}
   };
 
   const handleOfficeCall = () => {
@@ -329,6 +622,7 @@ const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
 
   return (
     <div className={`min-vh-100 ${theme === 'dark' ? 'bg-dark' : 'bg-light'}`} style={{ transition: 'all 0.4s ease', color: colors.text }}>
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" />
       
       <style>{`
         .touch-card { transition: all 0.3s ease; }
@@ -419,19 +713,91 @@ const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
           </div>
 
           <div className="d-none d-md-flex nav-pill-custom">
-            {['dashboard', 'wallet', 'support', 'settings'].map((tab) => (
-              <button 
+            {['dashboard', 'wallet', 'support', 'meetings', 'settings'].map((tab) => (
+              <button
                 key={tab}
-                className={`btn btn-sm rounded-pill px-3 py-1 border-0 text-uppercase fw-bold ${activeTab === tab ? 'btn-info text-white' : 'text-white-50'}`}
+                className={`btn btn-sm rounded-pill px-3 py-1 border-0 text-uppercase fw-bold position-relative ${activeTab === tab ? 'btn-info text-white' : 'text-white-50'}`}
                 onClick={() => { setActiveTab(tab); setShowScanner(false); }}
                 style={{ fontSize: '0.7rem' }}
               >
                 {tab}
+                {tab === 'support' && chatUnreadCount > 0 && (
+                  <span
+                    className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                    style={{ fontSize: '0.55rem', padding: '2px 5px', marginLeft: '-4px' }}
+                  >
+                    {chatUnreadCount > 9 ? '9+' : chatUnreadCount}
+                  </span>
+                )}
               </button>
             ))}
           </div>
 
-          <div className="d-flex align-items-center">
+          <div className="d-flex align-items-center gap-2">
+
+            {/* ── Notification Bell ── */}
+            <div className="position-relative" ref={notifBellRef}>
+              <button
+                className="btn btn-sm position-relative d-flex align-items-center justify-content-center rounded-circle"
+                style={{ width: 38, height: 38, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff' }}
+                onClick={() => { setShowNotifBell(v => !v); markAllChatNotifsRead(); }}
+                title="Notifications"
+              >
+                <i className="bi bi-bell-fill"></i>
+                {chatUnreadCount > 0 && (
+                  <span
+                    className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                    style={{ fontSize: '0.6rem', padding: '3px 5px' }}
+                  >
+                    {chatUnreadCount > 9 ? '9+' : chatUnreadCount}
+                  </span>
+                )}
+              </button>
+
+              {showNotifBell && (
+                <div
+                  className="position-absolute end-0 mt-2 shadow-lg"
+                  style={{ width: 320, background: '#1e293b', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 16, zIndex: 2000 }}
+                >
+                  <div className="px-3 py-2 border-bottom d-flex justify-content-between align-items-center" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+                    <span className="fw-bold small text-white">Notifications</span>
+                    <button className="btn btn-link btn-sm text-info p-0 text-decoration-none" style={{ fontSize: '0.75rem' }} onClick={markAllChatNotifsRead}>
+                      Mark all read
+                    </button>
+                  </div>
+                  <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+                    {chatNotifications.length === 0 ? (
+                      <div className="text-center py-4 text-muted small">No notifications yet</div>
+                    ) : chatNotifications.map((n, i) => (
+                      <div
+                        key={i}
+                        className="px-3 py-2 border-bottom d-flex gap-2 align-items-start"
+                        style={{ borderColor: 'rgba(255,255,255,0.07)', background: !n.isRead ? 'rgba(0,217,204,0.07)' : 'transparent', cursor: 'pointer' }}
+                        onClick={() => { setActiveTab('support'); setShowNotifBell(false); }}
+                      >
+                        <div
+                          className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 mt-1"
+                          style={{ width: 30, height: 30, background: !n.isRead ? 'rgba(0,217,204,0.2)' : 'rgba(255,255,255,0.05)' }}
+                        >
+                          <i className="bi bi-chat-fill" style={{ color: '#00d9cc', fontSize: '0.75rem' }}></i>
+                        </div>
+                        <div className="flex-grow-1 min-w-0">
+                          <div className="fw-bold" style={{ color: '#f8fafc', fontSize: '0.82rem' }}>{n.title}</div>
+                          <div className="text-truncate" style={{ color: '#94a3b8', fontSize: '0.78rem' }}>{n.message}</div>
+                          <div style={{ color: '#64748b', fontSize: '0.68rem' }}>
+                            {new Date(n.createdAt).toLocaleString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, day: 'numeric', month: 'short' })}
+                          </div>
+                        </div>
+                        {!n.isRead && (
+                          <span className="rounded-circle flex-shrink-0 mt-2" style={{ width: 7, height: 7, background: '#00d9cc', display: 'block' }}></span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <button onClick={onLogout} className="btn btn-outline-danger btn-sm rounded-pill px-3 fw-bold">
               <i className="bi bi-box-arrow-right me-2"></i>Logout
             </button>
@@ -451,12 +817,16 @@ const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
                     <span className="position-absolute bottom-0 end-0 bg-success border border-white border-2 rounded-circle" style={{width: 20, height: 20}}></span>
                  </div>
                  <h4 className="fw-bold mb-1">{student.name}</h4>
-                 <p className="badge bg-info bg-opacity-10 text-info mb-4">{student.id}</p>
+                 <p className="badge bg-info bg-opacity-10 text-info mb-4">{student.studentId || student.id}</p>
                  
                  <div className="text-start bg-light bg-opacity-10 rounded-4 p-3">
                     <DetailRow label="Standard" value={student.class} icon="mortarboard" />
                     <DetailRow label="Teacher" value={student.classTeacher} icon="person-badge" />
                     <DetailRow label="Bus Route" value={student.busRoute} icon="bus-front" />
+                    <DetailRow label="RFID Tag" value={student.rfid} icon="cpu" />
+                    <DetailRow label="Roll No" value={student.rollNo} icon="hash" />
+                    <DetailRow label="Blood Group" value={student.bloodGroup} icon="droplet-fill" />
+                    <DetailRow label="Contact" value={student.emergencyContact} icon="telephone" />
                     <DetailRow label="Medical" value={student.medicalNote} icon="heart-pulse-fill" />
                  </div>
                </div>
@@ -466,7 +836,7 @@ const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
                <div className="row g-3">
                  <ParentStat title="Attendance" value={student.attendance} icon="calendar2-check" color="#19917b" cardStyle={cardStyle} />
                  <ParentStat title="Wallet" value={`₹${student.wallet}`} icon="wallet2" color="#0f4877" cardStyle={cardStyle} />
-                 <ParentStat title="Rank" value={student.rank} icon="trophy" color="#5d173d" cardStyle={cardStyle} />
+                 <ParentStat title="Card Status" value={student.isActive ? "ACTIVE" : "SUSPENDED"} icon="credit-card-2-front" color={student.isActive ? "#19917b" : "#dc3545"} cardStyle={cardStyle} />
                </div>
 
                <div className="card mt-4 p-4 touch-card" style={cardStyle}>
@@ -523,33 +893,7 @@ const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
                             ))}
                         </div>
 
-                        {/* --- QR SCANNER SECTION --- */}
-                        <div className="mb-4">
-                            <button 
-                                onClick={() => setShowQrScanner(!showQrScanner)} 
-                                className={`btn w-100 rounded-3 py-2 fw-bold mb-3 ${showQrScanner ? 'btn-danger' : 'btn-outline-info'}`}
-                            >
-                                <i className={`bi bi-${showQrScanner ? 'x-lg' : 'qr-code-scan'} me-2`}></i>
-                                {showQrScanner ? 'Close QR Scanner' : 'Scan Student QR'}
-                            </button>
-                            
-                            {showQrScanner && (
-                                <div id="reader" className="rounded-4 overflow-hidden border border-info mb-3"></div>
-                            )}
-                        </div>
 
-                        {/* --- UPI ID SECTION --- */}
-                        <div className="mb-4">
-                            <label className="form-label small fw-bold opacity-75">Pay via UPI ID</label>
-                            <input 
-                                type="text" 
-                                className="form-control rounded-3" 
-                                placeholder="parent@upi" 
-                                value={upiId}
-                                onChange={(e) => setUpiId(e.target.value)}
-                                style={{ background: theme === 'dark' ? '#212529' : '#fff', color: colors.text, borderColor: colors.border }}
-                            />
-                        </div>
 
                         {/* --- EXISTING RFID SCANNER SECTION --- */}
                         <div className="p-3 mb-4 rounded-4 border" style={{ borderColor: colors.border, background: theme === 'dark' ? 'rgba(0,0,0,0.2)' : '#f8f9fa' }}>
@@ -640,43 +984,142 @@ const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
         )}
 
         {/* SUPPORT TAB */}
+        {/* SUPPORT TAB */}
         {activeTab === 'support' && (
           <div className="row justify-content-center animate-slide-up">
             <div className="col-md-8">
-              <div className="card p-4 touch-card shadow-sm" style={cardStyle}>
-                <h4 className="fw-bold mb-4">Help & Support</h4>
-                <div className="row g-3 mb-4">
-                    <div className="col-6">
-                        <button onClick={handleAdminChat} className="btn btn-outline-info w-100 py-3 rounded-4">
-                            <i className="bi bi-chat-dots fs-3 d-block mb-2"></i> 
-                            Chat with Admin
-                        </button>
+              {activeChat ? (
+                /* --- WHATSAPP-STYLE LIVE CHAT --- */
+                <div className="card overflow-hidden shadow-lg border-0" style={{ ...cardStyle, borderRadius: '24px' }}>
+                  {/* Chat Header */}
+                  <div className="d-flex align-items-center justify-content-between p-3 border-bottom" style={{ background: theme === 'dark' ? '#1e293b' : '#f8fafc', borderColor: colors.border }}>
+                    <div className="d-flex align-items-center gap-3">
+                      <button onClick={() => setActiveChat(null)} className="btn btn-link text-decoration-none p-0 d-flex align-items-center" style={{ color: colors.text }}>
+                        <i className="bi bi-arrow-left fs-4"></i>
+                      </button>
+                      <div className="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold shadow-sm animate-pulse" style={{ width: '45px', height: '45px', background: activeChat === 'admin_chat' ? '#0dcaf0' : '#198754' }}>
+                        <i className={`bi bi-${activeChat === 'admin_chat' ? 'shield-lock-fill' : 'person-workspace'} fs-5`}></i>
+                      </div>
+                      <div>
+                        <h6 className="fw-bold mb-0" style={{ color: colors.text }}>
+                          {activeChat === 'admin_chat' ? 'School Administrator Support' : 'Class Teacher (John Teacher)'}
+                        </h6>
+                        <span className="text-success small d-flex align-items-center gap-1" style={{ fontSize: '0.8rem' }}>
+                          <span className="bg-success rounded-circle" style={{ width: '6px', height: '6px', display: 'inline-block' }}></span>
+                          Typically replies instantly
+                        </span>
+                      </div>
                     </div>
-                    <div className="col-6">
-                        <button onClick={handleOfficeCall} className="btn btn-outline-primary w-100 py-3 rounded-4">
-                            <i className="bi bi-telephone-outbound fs-3 d-block mb-2"></i> 
-                            Call Office
-                        </button>
+                  </div>
+
+                  {/* Message History Area */}
+                  <div className="d-flex flex-column gap-2 p-3" style={{ height: '350px', overflowY: 'auto', background: theme === 'dark' ? 'rgba(15,23,42,0.6)' : 'rgba(241,245,249,0.5)' }}>
+                    {chatMessages.length > 0 ? (
+                      chatMessages.map((msg) => {
+                        const isMe = msg.senderRole === 'parent';
+                        return (
+                          <div key={msg.id} className={`d-flex flex-column ${isMe ? 'align-self-end' : 'align-self-start'}`} style={{ maxWidth: '75%' }}>
+                            <div className="py-2 px-3 shadow-sm" style={{
+                              background: isMe ? 'linear-gradient(135deg, #0dcaf0, #0aa2c0)' : (theme === 'dark' ? '#1e293b' : '#ffffff'),
+                              color: isMe ? '#fff' : colors.text,
+                              borderRadius: isMe ? '16px 16px 0px 16px' : '16px 16px 16px 0px',
+                              border: isMe ? 'none' : `1px solid ${colors.border}`
+                            }}>
+                              <p className="mb-1" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: '0.95rem' }}>{msg.message}</p>
+                              <div className="d-flex align-items-center justify-content-end gap-1 small opacity-75" style={{ fontSize: '0.72rem' }}>
+                                <span>{new Date(msg.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
+                                {isMe && (
+                                  <i className={`bi bi-check2-all ${msg.isSeen ? 'text-primary' : ''}`}></i>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="d-flex flex-column align-items-center justify-content-center h-100 opacity-50">
+                        <i className={`bi bi-${activeChat === 'admin_chat' ? 'shield-lock-fill' : 'chat-square-text-fill'} fs-1 mb-2`}></i>
+                        <p className="small mb-0">No messages yet. Send a message to start the secure chat!</p>
+                      </div>
+                    )}
+                    <div ref={messagesEndRef} />
+                  </div>
+
+                  {/* Input Footer */}
+                  <div className="p-3 border-top" style={{ background: theme === 'dark' ? '#1e293b' : '#f8fafc', borderColor: colors.border }}>
+                    <div className="input-group shadow-sm" style={{ borderRadius: '30px', overflow: 'hidden' }}>
+                      <input 
+                        type="text" 
+                        className="form-control border-0 bg-light bg-opacity-10 px-4 py-3" 
+                        style={{ color: colors.text, background: theme === 'dark' ? '#212529' : '#fff' }}
+                        placeholder="Type a secure message..."
+                        value={chatInput}
+                        onChange={(e) => setChatInput(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleSendChatMessage(); }}
+                      />
+                      <button
+                        onClick={handleSendChatMessage}
+                        disabled={chatSending || !chatInput.trim()}
+                        className="btn btn-info text-white px-4 d-flex align-items-center justify-content-center"
+                      >
+                        {chatSending
+                          ? <div className="spinner-border spinner-border-sm" role="status"></div>
+                          : <i className="bi bi-send-fill fs-5"></i>
+                        }
+                      </button>
                     </div>
+                  </div>
                 </div>
-                <hr className="my-4 opacity-10" />
-                <label className="small fw-bold mb-2">Message Principal / Teacher</label>
-                <textarea 
+              ) : (
+                /* --- CHAT SELECTION MENU --- */
+                <div className="card p-4 touch-card shadow-sm" style={cardStyle}>
+                  <h4 className="fw-bold mb-4">Help & Support</h4>
+                  <div className="row g-3 mb-4">
+                    <div className="col-md-4 col-6">
+                      <button onClick={handleAdminChat} className="btn btn-outline-info w-100 py-3 rounded-4">
+                        <i className="bi bi-chat-dots fs-3 d-block mb-2"></i> 
+                        Chat with Admin
+                      </button>
+                    </div>
+                    <div className="col-md-4 col-6">
+                      <button onClick={handleTeacherChat} className="btn btn-outline-success w-100 py-3 rounded-4">
+                        <i className="bi bi-person-workspace fs-3 d-block mb-2"></i> 
+                        Chat with Teacher
+                      </button>
+                    </div>
+                    <div className="col-md-4 col-12">
+                      <button onClick={handleOfficeCall} className="btn btn-outline-primary w-100 py-3 rounded-4">
+                        <i className="bi bi-telephone-outbound fs-3 d-block mb-2"></i> 
+                        Call Office
+                      </button>
+                    </div>
+                  </div>
+                  <hr className="my-4 opacity-10" />
+                  <label className="small fw-bold mb-2">Message Principal / Teacher</label>
+                  <textarea 
                     className="form-control rounded-4 mb-3 border-0 bg-light bg-opacity-10 p-3" 
                     rows="4" 
                     value={supportMessage}
                     onChange={(e) => setSupportMessage(e.target.value)}
                     placeholder="Briefly describe your concern (e.g., leave application, bus route change)..."
-                ></textarea>
-                <button 
+                  ></textarea>
+                  <button 
                     onClick={handleSupportSubmit} 
                     disabled={isProcessing}
                     className="btn btn-info text-white fw-bold w-100 rounded-pill py-3 shadow"
-                >
+                  >
                     {isProcessing ? 'Sending...' : 'Submit Request'}
-                </button>
-              </div>
+                  </button>
+                </div>
+              )}
             </div>
+          </div>
+        )}
+
+        {/* MEETINGS TAB */}
+        {activeTab === 'meetings' && (
+          <div className="animate-fade-in">
+            <Meetings theme={isDark ? 'dark' : 'light'} />
           </div>
         )}
 

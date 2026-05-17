@@ -1,9 +1,6 @@
 const express = require('express');
-const { PrismaClient } = require('@prisma/client');
-
 const router = express.Router();
-const prisma = new PrismaClient();
-
+const prisma = require('../prismaClient');
 // Helper for local date
 const getLocalDateBounds = () => {
   const date = new Date();
@@ -177,7 +174,7 @@ router.post('/scan-wallet', async (req, res) => {
       student: {
         name: student.fullName,
         class_name: student.className,
-        profile_image: student.profileImage || "https://i.pravatar.cc/150?u=1",
+        profile_image: student.profileImage || `https://ui-avatars.com/api/?name=${student.fullName || 'Student'}&background=random`,
         wallet_balance: student.rfidWallet ? student.rfidWallet.balance : 0,
         rfid_tag: student.rfidTag
       }

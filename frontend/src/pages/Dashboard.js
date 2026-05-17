@@ -1,11 +1,13 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Students from './Student'; 
 import Attendance from './Attendance'; 
 import Library from './Library'; 
 import Payments from './Payments';
 import Settings from './Settings';
 import BusBoarding from './BusBoarding';
+import ChatInbox from './ChatInbox';
+import Meetings from './Meetings';
 
 
 const dashStyles = `
@@ -159,6 +161,7 @@ const dashStyles = `
 
 const Dashboard = ({ onLogout, theme, toggleTheme }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedDate, setSelectedDate] = useState(new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0]);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -171,6 +174,31 @@ const Dashboard = ({ onLogout, theme, toggleTheme }) => {
     lastLogin: "...",
     schoolName: "EduScan School"
   });
+
+  // ── Chat notification unread count for sidebar badge ──────────────────────
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
+
+  useEffect(() => {
+    const fetchChatUnread = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch('/api/chat/notifications', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (res.ok) setChatUnreadCount(data.unreadCount || 0);
+      } catch (e) {}
+    };
+    fetchChatUnread();
+    const interval = setInterval(fetchChatUnread, 10000);
+    return () => clearInterval(interval);
+  }, []);
+  
+  useEffect(() => {
+    if (!['settings', 'messages', 'meetings'].includes(activeTab)) {
+      setSettingsOpen(false);
+    }
+  }, [activeTab]);
   
   const [dashboardStats, setDashboardStats] = useState({
     totalStudents: 0,
@@ -268,6 +296,8 @@ const Dashboard = ({ onLogout, theme, toggleTheme }) => {
       case 'library': return <><PageHeader title="Library Logs" /><Library date={selectedDate} /></>; 
       case 'payments': return <><PageHeader title="Fee Collection" /><Payments date={selectedDate} /></>;
       case 'settings': return <Settings adminData={adminData} />;
+      case 'messages': return <ChatInbox theme={theme} />;
+      case 'meetings': return <Meetings theme={theme} />;
       default: return (
         <div className="animate-fade-in">
           <div className="d-flex justify-content-between align-items-end mb-4">
@@ -365,7 +395,83 @@ const Dashboard = ({ onLogout, theme, toggleTheme }) => {
           <NavItem active={activeTab === 'bus-boarding'} icon="bus-front" label="Bus Boarding" onClick={() => setActiveTab('bus-boarding')} collapsed={isCollapsed} />
           <NavItem active={activeTab === 'library'} icon="book" label="Library" onClick={() => setActiveTab('library')} collapsed={isCollapsed} />
           <NavItem active={activeTab === 'payments'} icon="credit-card" label="Payments" onClick={() => setActiveTab('payments')} collapsed={isCollapsed} />
-          <NavItem active={activeTab === 'settings'} icon="gear" label="Settings" onClick={() => setActiveTab('settings')} collapsed={isCollapsed} />
+          
+          <NavItem 
+            active={activeTab === 'settings' || activeTab === 'messages' || activeTab === 'meetings'} 
+            icon="gear" 
+            label="Settings" 
+            onClick={() => setSettingsOpen(!settingsOpen)} 
+            collapsed={isCollapsed} 
+          />
+          
+          {settingsOpen && (
+            <div 
+              className={`${isCollapsed ? 'd-flex flex-column gap-1 align-items-center mt-2' : 'ps-4 d-flex flex-column gap-1 mt-1 mb-2 animate-fade-in'}`}
+              style={{ transition: 'all 0.3s ease' }}
+            >
+              <button 
+                className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`} 
+                onClick={() => setActiveTab('settings')}
+                style={{ 
+                  fontSize: isCollapsed ? '1rem' : '0.85rem', 
+                  padding: isCollapsed ? '10px' : '8px 12px', 
+                  justifyContent: isCollapsed ? 'center' : 'start',
+                  marginBottom: '2px',
+                  borderRadius: '10px'
+                }}
+                title="General Settings"
+              >
+                <i className="bi bi-gear-fill fs-6" style={{ color: activeTab === 'settings' ? 'var(--accent-cyan)' : '' }}></i>
+                {!isCollapsed && <span>General Settings</span>}
+              </button>
+              
+              <button 
+                className={`nav-item ${activeTab === 'messages' ? 'active' : ''}`} 
+                onClick={() => { setActiveTab('messages'); setChatUnreadCount(0); }}
+                style={{ 
+                  fontSize: isCollapsed ? '1rem' : '0.85rem', 
+                  padding: isCollapsed ? '10px' : '8px 12px', 
+                  justifyContent: isCollapsed ? 'center' : 'start',
+                  marginBottom: '2px',
+                  position: 'relative',
+                  borderRadius: '10px'
+                }}
+                title="Messages"
+              >
+                <i className="bi bi-chat-left-text-fill fs-6" style={{ color: activeTab === 'messages' ? 'var(--accent-cyan)' : '' }}></i>
+                {!isCollapsed && <span>Messages</span>}
+                {chatUnreadCount > 0 && (
+                  <span 
+                    className="position-absolute badge rounded-pill bg-danger" 
+                    style={{ 
+                      fontSize: '0.5rem', 
+                      padding: '2px 4px', 
+                      top: 2, 
+                      right: isCollapsed ? 2 : 10 
+                    }}
+                  >
+                    {chatUnreadCount}
+                  </span>
+                )}
+              </button>
+              
+              <button 
+                className={`nav-item ${activeTab === 'meetings' ? 'active' : ''}`} 
+                onClick={() => setActiveTab('meetings')}
+                style={{ 
+                  fontSize: isCollapsed ? '1rem' : '0.85rem', 
+                  padding: isCollapsed ? '10px' : '8px 12px', 
+                  justifyContent: isCollapsed ? 'center' : 'start',
+                  marginBottom: '2px',
+                  borderRadius: '10px'
+                }}
+                title="Meetings"
+              >
+                <i className="bi bi-camera-video-fill fs-6" style={{ color: activeTab === 'meetings' ? 'var(--accent-cyan)' : '' }}></i>
+                {!isCollapsed && <span>Meetings</span>}
+              </button>
+            </div>
+          )}
         </nav>
 
         <div className="nav-item text-danger mt-auto" onClick={() => setIsLoggingOut(true)} style={{cursor: 'pointer'}}>
@@ -452,9 +558,18 @@ const Dashboard = ({ onLogout, theme, toggleTheme }) => {
 };
 
 /* --- Sub-Components --- */
-const NavItem = ({ icon, label, active, onClick, collapsed }) => (
-  <button className={`nav-item ${active ? 'active' : ''}`} onClick={onClick}>
-    <i className={`bi bi-${icon} fs-5`}></i>{!collapsed && <span>{label}</span>}
+const NavItem = ({ icon, label, active, onClick, collapsed, badge }) => (
+  <button className={`nav-item ${active ? 'active' : ''}`} onClick={onClick} style={{ position: 'relative' }}>
+    <i className={`bi bi-${icon} fs-5`}></i>
+    {!collapsed && <span>{label}</span>}
+    {badge > 0 && (
+      <span
+        className="position-absolute badge rounded-pill bg-danger"
+        style={{ fontSize: '0.6rem', padding: '3px 5px', top: 6, right: collapsed ? 4 : 10 }}
+      >
+        {badge > 9 ? '9+' : badge}
+      </span>
+    )}
   </button>
 );
 
