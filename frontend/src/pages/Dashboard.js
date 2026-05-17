@@ -172,7 +172,9 @@ const Dashboard = ({ onLogout, theme, toggleTheme }) => {
     id: "...",
     email: "loading@schoolhub.edu",
     lastLogin: "...",
-    schoolName: "EduScan School"
+    schoolName: "EduScan School",
+    staffRole: null,
+    permissions: null
   });
 
   // ── Chat notification unread count for sidebar badge ──────────────────────
@@ -223,13 +225,29 @@ const Dashboard = ({ onLogout, theme, toggleTheme }) => {
           const user = await response.json();
           setAdminData({
             name: user.firstName ? `${user.firstName} ${user.lastName}` : (user.fullName || user.name || "Loading..."),
-            role: user.role === 'admin' ? "Administrator" : "Parent",
+            role: user.role === 'admin' ? "Administrator" : user.role === 'staff' ? user.staffRole : "Parent",
             id: user.id || "N/A",
             email: user.email || "N/A",
             phone: user.phone || "N/A",
             lastLogin: new Date(user.createdAt).toLocaleDateString() || "Unknown",
-            schoolName: user.schoolName || user.school?.name || "EduScan School"
+            schoolName: user.schoolName || user.school?.name || "EduScan School",
+            staffRole: user.staffRole || null,
+            permissions: user.permissions || null
           });
+          if (user.staffRole) {
+            const perms = user.permissions;
+            if (perms) {
+              if (perms.canAccessDashboard) setActiveTab("dashboard");
+              else if (perms.canAccessLibrary) setActiveTab("library");
+              else if (perms.canAccessStudents) setActiveTab("students");
+              else if (perms.canAccessAttendance) setActiveTab("attendance");
+              else if (perms.canAccessBus) setActiveTab("bus-boarding");
+              else if (perms.canAccessPayments) setActiveTab("payments");
+              else setActiveTab("settings");
+            } else {
+              setActiveTab("settings");
+            }
+          }
         }
       } catch (err) {
         console.error("Error fetching admin data:", err);
@@ -389,12 +407,24 @@ const Dashboard = ({ onLogout, theme, toggleTheme }) => {
         </div>
 
         <nav className="flex-grow-1">
-          <NavItem active={activeTab === 'dashboard'} icon="grid-fill" label="Dashboard" onClick={() => setActiveTab('dashboard')} collapsed={isCollapsed} />
-          <NavItem active={activeTab === 'students'} icon="people" label="Students" onClick={() => setActiveTab('students')} collapsed={isCollapsed} />
-          <NavItem active={activeTab === 'attendance'} icon="calendar-check" label="Attendance" onClick={() => setActiveTab('attendance')} collapsed={isCollapsed} />
-          <NavItem active={activeTab === 'bus-boarding'} icon="bus-front" label="Bus Boarding" onClick={() => setActiveTab('bus-boarding')} collapsed={isCollapsed} />
-          <NavItem active={activeTab === 'library'} icon="book" label="Library" onClick={() => setActiveTab('library')} collapsed={isCollapsed} />
-          <NavItem active={activeTab === 'payments'} icon="credit-card" label="Payments" onClick={() => setActiveTab('payments')} collapsed={isCollapsed} />
+          {(!adminData.staffRole || adminData.permissions?.canAccessDashboard) && (
+            <NavItem active={activeTab === 'dashboard'} icon="grid-fill" label="Dashboard" onClick={() => setActiveTab('dashboard')} collapsed={isCollapsed} />
+          )}
+          {(!adminData.staffRole || adminData.permissions?.canAccessStudents) && (
+            <NavItem active={activeTab === 'students'} icon="people" label="Students" onClick={() => setActiveTab('students')} collapsed={isCollapsed} />
+          )}
+          {(!adminData.staffRole || adminData.permissions?.canAccessAttendance) && (
+            <NavItem active={activeTab === 'attendance'} icon="calendar-check" label="Attendance" onClick={() => setActiveTab('attendance')} collapsed={isCollapsed} />
+          )}
+          {(!adminData.staffRole || adminData.permissions?.canAccessBus) && (
+            <NavItem active={activeTab === 'bus-boarding'} icon="bus-front" label="Bus Boarding" onClick={() => setActiveTab('bus-boarding')} collapsed={isCollapsed} />
+          )}
+          {(!adminData.staffRole || adminData.permissions?.canAccessLibrary) && (
+            <NavItem active={activeTab === 'library'} icon="book" label="Library" onClick={() => setActiveTab('library')} collapsed={isCollapsed} />
+          )}
+          {(!adminData.staffRole || adminData.permissions?.canAccessPayments) && (
+            <NavItem active={activeTab === 'payments'} icon="credit-card" label="Payments" onClick={() => setActiveTab('payments')} collapsed={isCollapsed} />
+          )}
           
           <NavItem 
             active={activeTab === 'settings' || activeTab === 'messages' || activeTab === 'meetings'} 
@@ -495,13 +525,21 @@ const Dashboard = ({ onLogout, theme, toggleTheme }) => {
         )}
 
         <header className="d-flex justify-content-between align-items-center mb-5">
-          <div className="search-container">
-            <div className="search-wrapper">
-              <i className="bi bi-search search-icon"></i>
-              <input type="text" className="search-input" placeholder="Search students..." />
+          {(activeTab === 'students' || activeTab === 'attendance') ? (
+            <div className="search-container">
+              <div className="search-wrapper">
+                <i className="bi bi-search search-icon"></i>
+                <input type="text" className="search-input" placeholder="Search students..." />
+              </div>
+              <input type="date" className="header-date-input" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} style={{ height: '42px' }} />
             </div>
-            <input type="date" className="header-date-input" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
-          </div>
+          ) : (
+            <div className="d-flex align-items-center gap-2">
+              <i className="bi bi-calendar-event text-info fs-5"></i>
+              <span className="text-muted small fw-bold d-none d-sm-inline">System Date:</span>
+              <input type="date" className="header-date-input" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} style={{ height: '42px', border: '1px solid var(--input-border)', borderRadius: '12px', padding: '0 15px', backgroundColor: 'var(--input-bg)', color: 'var(--text-main)', width: '150px' }} />
+            </div>
+          )}
 
           <div className="d-flex align-items-center">
             {/* Theme Toggle Button */}

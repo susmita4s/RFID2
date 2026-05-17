@@ -27,7 +27,7 @@ const verifyToken = (req, res, next) => {
 // ── POST /api/auth/register ───────────────────────────────────────────────────
 router.post('/register', async (req, res) => {
   try {
-    const { firstName, lastName, email, phone, password, confirmPassword, role, schoolName } = req.body;
+    const { firstName, lastName, email, phone, password, confirmPassword, role, schoolName, staffRole } = req.body;
 
     // 1. Missing fields validation
     if (!firstName || !lastName || !email || !password || !confirmPassword) {
@@ -96,6 +96,7 @@ router.post('/register', async (req, res) => {
         phone: trimmedPhone,
         password: hashed, 
         role: userRole,
+        staffRole: staffRole || null,
         isVerified: false,
         registrationOtp,
         otpExpiry
@@ -341,12 +342,32 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// ── GET /api/auth/roles ────────────────────────────────────────────────────────
+router.get('/roles', async (req, res) => {
+  try {
+    const roles = await prisma.rolePermission.findMany({
+      select: { roleName: true }
+    });
+    
+    // Fallback default roles if database is empty
+    const defaultRoles = ['Teacher', 'Subject Teacher', 'Class Teacher', 'HOD', 'Librarian', 'Lab Assistant', 'Sports Teacher', 'Music Teacher', 'Dance Teacher', 'Art Teacher', 'Special Educator'];
+    const customRoles = roles.map(r => r.roleName);
+    
+    // Merge without duplicates
+    const allRoles = Array.from(new Set([...defaultRoles, ...customRoles]));
+    res.json({ success: true, roles: allRoles });
+  } catch (err) {
+    console.error('Failed to fetch roles from DB:', err);
+    res.status(500).json({ success: false, message: 'Failed to fetch roles' });
+  }
+});
+
 // ── GET /api/auth/me ──────────────────────────────────────────────────────────
 router.get('/me', verifyToken, async (req, res) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.user.id },
-      select: { id: true, firstName: true, lastName: true, email: true, phone: true, role: true, isVerified: true, createdAt: true, school: true },
+      select: { id: true, firstName: true, lastName: true, email: true, phone: true, role: true, staffRole: true, isVerified: true, createdAt: true, school: true },
     });
     if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
 
@@ -363,7 +384,26 @@ router.get('/me', verifyToken, async (req, res) => {
       });
     }
 
-    res.json({ success: true, ...user });
+    let permissions = null;
+    if (user.role === 'staff' && user.staffRole) {
+      permissions = await prisma.rolePermission.findUnique({
+        where: { roleName: user.staffRole }
+      });
+      if (!permissions) {
+        // Fallbacks for default roles
+        const isLibrarian = user.staffRole === 'Librarian';
+        const isTeacher = ['Teacher', 'Subject Teacher', 'Class Teacher', 'HOD'].includes(user.staffRole);
+        permissions = {
+          canAccessLibrary: isLibrarian,
+          canAccessPayments: false,
+          canAccessStudents: isTeacher,
+          canAccessAttendance: isTeacher,
+          canAccessBus: false
+        };
+      }
+    }
+
+    res.json({ success: true, ...user, permissions });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to fetch user.' });
   }
