@@ -171,7 +171,7 @@ const Attendance = () => {
                   {/* Student Info */}
                   <div className="d-flex align-items-center gap-3" style={{ flex: '2.5' }} data-label="Student">
                     <div className="position-relative">
-                        <img src={`https://i.pravatar.cc/150?u=${student.dbId}`} className="rounded-circle border" style={{ width: '42px', height: '42px', objectFit: 'cover' }} alt="" />
+                        <img src={student.profileImage || `https://ui-avatars.com/api/?name=${student.name}&background=random`} className="rounded-circle border" style={{ width: '42px', height: '42px', objectFit: 'cover' }} alt="" />
                         <div className={`position-absolute bottom-0 end-0 rounded-circle border border-white ${student.rfidEnabled ? 'bg-success' : 'bg-secondary'}`} style={{width: '12px', height: '12px'}}></div>
                     </div>
                     <div>
