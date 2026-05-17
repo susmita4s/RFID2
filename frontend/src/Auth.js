@@ -245,8 +245,19 @@ const Auth = ({ onLogin, setPage, setRegisterRole, theme, toggleTheme }) => {
                 </div>
 
                 {/* Right Side: Login Form */}
-                <div className={`col-lg-6 d-flex align-items-center justify-content-center p-4 ${theme === 'dark' ? 'bg-dark-navy' : 'bg-light-gray'}`}>
-                    <div className="login-card w-100" style={{ maxWidth: '450px' }}>
+                <div 
+                    className={`col-lg-6 d-flex align-items-center justify-content-center p-4 ${theme === 'dark' ? 'bg-dark-navy' : 'bg-light-gray'}`}
+                    style={{
+                        backgroundImage: `url(/bg-login.png)`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        position: 'relative'
+                    }}
+                >
+                    {/* Add a subtle overlay to ensure text remains readable */}
+                    <div style={{ position: 'absolute', inset: 0, backgroundColor: theme === 'dark' ? 'rgba(5, 22, 20, 0.7)' : 'rgba(241, 245, 249, 0.6)' }}></div>
+                    
+                    <div className="login-card w-100" style={{ maxWidth: '450px', position: 'relative', zIndex: 1, backdropFilter: 'blur(12px)', backgroundColor: theme === 'dark' ? 'rgba(10, 36, 33, 0.6)' : 'rgba(255, 255, 255, 0.7)' }}>
                         <div className="text-center mb-4">
                             <h2 className="text-white fw-bold">Welcome Back</h2>
                             <p className="text-light-muted">Sign in to your account to continue</p>
@@ -257,15 +268,25 @@ const Auth = ({ onLogin, setPage, setRegisterRole, theme, toggleTheme }) => {
                                 type="button"
                                 className={`btn-role flex-fill ${role === 'administrator' ? 'active' : ''}`}
                                 onClick={() => setRole('administrator')}
+                                style={{ padding: '8px' }}
                             >
-                                <ShieldLock className="me-2" /> Administrator
+                                <ShieldLock className="d-block mx-auto mb-1" /> Admin
+                            </button>
+                            <button 
+                                type="button"
+                                className={`btn-role flex-fill ${role === 'staff' ? 'active' : ''}`}
+                                onClick={() => setRole('staff')}
+                                style={{ padding: '8px' }}
+                            >
+                                <Grid className="d-block mx-auto mb-1" /> Staff
                             </button>
                             <button 
                                 type="button"
                                 className={`btn-role flex-fill ${role === 'parent' ? 'active' : ''}`}
                                 onClick={() => setRole('parent')}
+                                style={{ padding: '8px' }}
                             >
-                                <Person className="me-2" /> Parent
+                                <Person className="d-block mx-auto mb-1" /> Parent
                             </button>
                         </div>
 

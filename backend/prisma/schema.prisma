@@ -17,7 +17,8 @@ model User {
   email     String   @unique
   password  String   @default("")
   phone     String?
-  role      String   @default("user") // "admin" | "user" | "parent"
+  role      String   @default("user") // "admin" | "user" | "parent" | "staff"
+  staffRole String?  // e.g. "Teacher", "Librarian", "Bus Driver"
   rfidTag         String?   @unique
   isVerified      Boolean   @default(true) // Admins are true by default, Parents will be false until they set password
   registrationOtp String?
@@ -45,9 +46,10 @@ model User {
 }
 
 model School {
-  id        Int      @id @default(autoincrement())
-  name      String   @unique
-  admin     User?
+  id              Int              @id @default(autoincrement())
+  name            String           @unique
+  admin           User?
+  rolePermissions RolePermission[]
 }
 
 model Student {
@@ -254,3 +256,18 @@ model WalletTransaction {
 
   student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
 }
+
+model RolePermission {
+  id                  Int      @id @default(autoincrement())
+  roleName            String   @unique
+  canAccessDashboard  Boolean  @default(true)
+  canAccessLibrary    Boolean  @default(false)
+  canAccessPayments   Boolean  @default(false)
+  canAccessStudents   Boolean  @default(false)
+  canAccessAttendance Boolean  @default(false)
+  canAccessBus        Boolean  @default(false)
+  
+  schoolId            Int?
+  school              School?  @relation(fields: [schoolId], references: [id])
+}
+

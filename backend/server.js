@@ -60,6 +60,10 @@ app.use('/api/auth', authRoutes);
 const dashboardRoutes = require('./routes/dashboard');
 app.use('/api/dashboard', dashboardRoutes);
 
+// ─── Roles Routes ─────────────────────────────────────────────────────────────
+const rolesRoutes = require('./routes/roles');
+app.use('/api/roles', rolesRoutes);
+
 // ─── Fees Routes ──────────────────────────────────────────────────────────────
 const feesRoutes = require('./routes/fees');
 app.use('/api/fees', feesRoutes);

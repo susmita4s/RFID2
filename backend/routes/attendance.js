@@ -51,6 +51,7 @@ router.get('/', verifyToken, async (req, res) => {
         checkOut: attendance?.checkOut ? new Date(attendance.checkOut).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '--:--',
         status: attendance?.status || 'absent',
         phone: student.phoneNumber || 'N/A',
+        profileImage: student.profileImage || null,
         rfidEnabled: attendance ? attendance.rfidEnabled : false,
         attendanceId: attendance?.id || null
       };

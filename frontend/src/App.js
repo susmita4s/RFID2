@@ -82,7 +82,7 @@ const MainApp = () => {
         
         if (response.ok) {
           const user = await response.json();
-          setUserRole(user.role === 'admin' ? 'admin' : 'parent');
+          setUserRole(user.role === 'admin' ? 'admin' : user.role === 'staff' ? 'staff' : 'parent');
         } else {
           localStorage.removeItem('token');
           localStorage.removeItem('user');
@@ -104,7 +104,8 @@ const MainApp = () => {
 
   const handleLogin = (selectedRole) => {
     const normalizedRole =
-      selectedRole.toLowerCase() === 'administrator' ? 'admin' : 'parent';
+      selectedRole.toLowerCase() === 'administrator' ? 'admin' : 
+      selectedRole.toLowerCase() === 'staff' ? 'staff' : 'parent';
     setUserRole(normalizedRole);
   };
 
@@ -128,6 +129,8 @@ const MainApp = () => {
   return (
     <div data-theme={theme} className="app-container">
       {userRole === 'admin' ? (
+        <Dashboard onLogout={handleLogout} theme={theme} toggleTheme={toggleTheme} />
+      ) : userRole === 'staff' ? (
         <Dashboard onLogout={handleLogout} theme={theme} toggleTheme={toggleTheme} />
       ) : userRole === 'parent' ? (
         <ParentPortal onLogout={handleLogout} theme={theme} toggleTheme={toggleTheme} />

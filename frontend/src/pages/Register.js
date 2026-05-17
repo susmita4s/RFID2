@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Eye, EyeSlash } from "react-bootstrap-icons";
+import { Eye, EyeSlash, Person, Envelope, Telephone, Lock, Building, Briefcase } from "react-bootstrap-icons";
 import "../Login.css"; // ✅ use same CSS as login
 
 const Register = ({ setPage, role = "parent", onLogin, theme }) => {
@@ -11,6 +11,7 @@ const Register = ({ setPage, role = "parent", onLogin, theme }) => {
     password: "",
     confirmPassword: "",
     schoolName: "",
+    staffRole: "",
   });
 
   const [showPassword, setShowPassword] = useState(false);
@@ -25,6 +26,22 @@ const Register = ({ setPage, role = "parent", onLogin, theme }) => {
   const [otp, setOtp] = useState("");
   const [cooldown, setCooldown] = useState(0);
 
+  // Dynamic Roles State
+  const [dynamicRoles, setDynamicRoles] = useState([]);
+
+  useEffect(() => {
+    if (role === "staff") {
+      fetch("http://localhost:5000/api/auth/roles")
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setDynamicRoles(data.roles);
+          }
+        })
+        .catch(err => console.error("Failed to fetch roles:", err));
+    }
+  }, [role]);
+
   // Handle countdown timer for Resend OTP
   useEffect(() => {
     let timer;
@@ -38,10 +55,10 @@ const Register = ({ setPage, role = "parent", onLogin, theme }) => {
     e.preventDefault();
     console.log("FORM DATA:", form);
     
-    const { firstName, lastName, email, phone, password, confirmPassword, schoolName } = form;
+    const { firstName, lastName, email, phone, password, confirmPassword, schoolName, staffRole } = form;
 
     // Frontend validation
-    if (!firstName || !lastName || !email || !password || !confirmPassword || (role === "administrator" && !schoolName)) {
+    if (!firstName || !lastName || !email || !password || !confirmPassword || (role === "administrator" && !schoolName) || (role === "staff" && !staffRole)) {
       setError("All required fields must be filled");
       return;
     }
@@ -71,8 +88,9 @@ const Register = ({ setPage, role = "parent", onLogin, theme }) => {
           phone,
           password,
           confirmPassword,
-          role: role === "administrator" ? "admin" : "parent",
+          role: role === "administrator" ? "admin" : role === "staff" ? "staff" : "parent",
           schoolName: role === "administrator" ? schoolName : undefined,
+          staffRole: role === "staff" ? staffRole : undefined,
         }),
       });
 
@@ -95,6 +113,7 @@ const Register = ({ setPage, role = "parent", onLogin, theme }) => {
           password: "",
           confirmPassword: "",
           schoolName: "",
+          staffRole: "",
         });
         setTimeout(() => setPage("login"), 2000);
       }
@@ -180,7 +199,17 @@ const Register = ({ setPage, role = "parent", onLogin, theme }) => {
   };
 
   return (
-    <div className={`container-fluid vh-100 d-flex align-items-center justify-content-center position-relative ${theme === 'dark' ? 'bg-dark-navy' : 'bg-light-gray'}`}>
+    <div 
+      className={`container-fluid vh-100 d-flex align-items-center justify-content-center position-relative ${theme === 'dark' ? 'bg-dark-navy' : 'bg-light-gray'}`}
+      style={{
+        backgroundImage: `url(/bg-login.png)`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed'
+      }}
+    >
+      {/* Add a subtle overlay to ensure text remains readable */}
+      <div style={{ position: 'absolute', inset: 0, backgroundColor: theme === 'dark' ? 'rgba(5, 22, 20, 0.7)' : 'rgba(241, 245, 249, 0.6)' }}></div>
       
       {/* OTP Modal Overlay */}
       {showOtpModal && (
@@ -232,15 +261,24 @@ const Register = ({ setPage, role = "parent", onLogin, theme }) => {
         </div>
       )}
 
-      <div className="login-card w-100" style={{ maxWidth: "450px" }}>
+      <div 
+        className="login-card w-100" 
+        style={{ 
+          maxWidth: "550px",
+          position: 'relative', 
+          zIndex: 1, 
+          backdropFilter: 'blur(12px)', 
+          backgroundColor: theme === 'dark' ? 'rgba(10, 36, 33, 0.6)' : 'rgba(255, 255, 255, 0.7)' 
+        }}
+      >
         <div className="text-center mb-4">
           <h2 className={`${theme === 'dark' ? 'text-white' : 'text-dark'} fw-bold`}>
-            {role === "administrator" ? "Administrator" : "Parent"} Registration
+            {role === "administrator" ? "Administrator" : role === "staff" ? "Staff" : "Parent"} Registration
           </h2>
           <p className="text-light-muted">
             {role === "administrator" 
               ? "Create an administrator account to manage the system" 
-              : "Create an account to monitor your child"}
+              : role === "staff" ? "Create a staff account" : "Create an account to monitor your child"}
           </p>
         </div>
 
@@ -250,7 +288,8 @@ const Register = ({ setPage, role = "parent", onLogin, theme }) => {
 
           <form onSubmit={handleRegister}>
             <div className="row g-2 mb-3">
-              <div className="col-6">
+              <div className="col-6 position-relative">
+                <Person className="position-absolute top-50 translate-middle-y text-muted" style={{ left: '15px', zIndex: 5 }} />
                 <input
                   type="text"
                   required
@@ -258,9 +297,11 @@ const Register = ({ setPage, role = "parent", onLogin, theme }) => {
                   value={form.firstName}
                   onChange={(e) => setForm({ ...form, firstName: e.target.value })}
                   className="form-control custom-input"
+                  style={{ paddingLeft: '40px' }}
                 />
               </div>
-              <div className="col-6">
+              <div className="col-6 position-relative">
+                <Person className="position-absolute top-50 translate-middle-y text-muted" style={{ left: '15px', zIndex: 5 }} />
                 <input
                   type="text"
                   required
@@ -268,12 +309,14 @@ const Register = ({ setPage, role = "parent", onLogin, theme }) => {
                   value={form.lastName}
                   onChange={(e) => setForm({ ...form, lastName: e.target.value })}
                   className="form-control custom-input"
+                  style={{ paddingLeft: '40px' }}
                 />
               </div>
             </div>
 
             {role === "administrator" && (
-              <div className="mb-3">
+              <div className="mb-3 position-relative">
+                <Building className="position-absolute top-50 translate-middle-y text-muted" style={{ left: '15px', zIndex: 5 }} />
                 <input
                   type="text"
                   required
@@ -281,11 +324,31 @@ const Register = ({ setPage, role = "parent", onLogin, theme }) => {
                   value={form.schoolName}
                   onChange={(e) => setForm({ ...form, schoolName: e.target.value })}
                   className="form-control custom-input"
+                  style={{ paddingLeft: '40px' }}
                 />
               </div>
             )}
 
-            <div className="mb-3">
+            {role === "staff" && (
+              <div className="mb-3 position-relative">
+                <Briefcase className="position-absolute top-50 translate-middle-y text-muted" style={{ left: '15px', zIndex: 5 }} />
+                <select
+                  required
+                  value={form.staffRole}
+                  onChange={(e) => setForm({ ...form, staffRole: e.target.value })}
+                  className="form-select custom-input"
+                  style={{ paddingLeft: '40px', color: form.staffRole ? undefined : 'var(--text-muted)' }}
+                >
+                  <option value="" disabled>Select Staff Role</option>
+                  {dynamicRoles.map((r, idx) => (
+                    <option key={idx} value={r}>{r.replace(/_/g, ' ')}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div className="mb-3 position-relative">
+              <Envelope className="position-absolute top-50 translate-middle-y text-muted" style={{ left: '15px', zIndex: 5 }} />
               <input
                 type="email"
                 required
@@ -293,10 +356,12 @@ const Register = ({ setPage, role = "parent", onLogin, theme }) => {
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 className="form-control custom-input"
+                style={{ paddingLeft: '40px' }}
               />
             </div>
 
-            <div className="mb-3">
+            <div className="mb-3 position-relative">
+              <Telephone className="position-absolute top-50 translate-middle-y text-muted" style={{ left: '15px', zIndex: 5 }} />
               <input
                 type="tel"
                 required
@@ -304,10 +369,12 @@ const Register = ({ setPage, role = "parent", onLogin, theme }) => {
                 value={form.phone}
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
                 className="form-control custom-input"
+                style={{ paddingLeft: '40px' }}
               />
             </div>
 
             <div className="mb-3 position-relative">
+              <Lock className="position-absolute top-50 translate-middle-y text-muted" style={{ left: '15px', zIndex: 5 }} />
               <input
                 type={showPassword ? "text" : "password"}
                 required
@@ -315,6 +382,7 @@ const Register = ({ setPage, role = "parent", onLogin, theme }) => {
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
                 className="form-control custom-input pe-5"
+                style={{ paddingLeft: '40px' }}
               />
               <button
                 type="button"
@@ -327,6 +395,7 @@ const Register = ({ setPage, role = "parent", onLogin, theme }) => {
             </div>
 
             <div className="mb-4 position-relative">
+              <Lock className="position-absolute top-50 translate-middle-y text-muted" style={{ left: '15px', zIndex: 5 }} />
               <input
                 type={showConfirmPassword ? "text" : "password"}
                 required
@@ -334,6 +403,7 @@ const Register = ({ setPage, role = "parent", onLogin, theme }) => {
                 value={form.confirmPassword}
                 onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
                 className="form-control custom-input pe-5"
+                style={{ paddingLeft: '40px' }}
               />
               <button
                 type="button"
