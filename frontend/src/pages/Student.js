@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 const Students = () => {
   // --- State Management ---
@@ -26,7 +26,7 @@ const Students = () => {
   const [classes, setClasses] = useState(['All']);
 
   // --- API Calls ---
-  const fetchStudents = async () => {
+  const fetchStudents = useCallback(async () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
@@ -35,7 +35,7 @@ const Students = () => {
       if (filterClass !== 'All') queryParams.append('class', filterClass);
       if (filterDate) queryParams.append('joinedDate', filterDate);
 
-      const response = await fetch(`/api/students?${queryParams.toString()}`, {
+      const response = await fetch(`http://localhost:5000/api/students?${queryParams.toString()}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -53,34 +53,40 @@ const Students = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchQuery, filterClass, filterDate]);
 
   // Ensure students are fetched directly from backend on page load
   useEffect(() => {
     fetchStudents();
-  }, []);
+  }, [fetchStudents]);
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
       fetchStudents();
     }, 300);
     return () => clearTimeout(delayDebounceFn);
-  }, [searchQuery, filterClass, filterDate]);
+  }, [fetchStudents]);
 
 
   const generateRFID = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/students/assign-rfid', {
+      const response = await fetch('http://localhost:5000/api/students/assign-rfid', {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
       const data = await response.json();
       if (data.success) {
-        setNewStudent({ ...newStudent, rfidTag: data.rfid });
+        setNewStudent(prev => ({ ...prev, rfidTag: data.rfid }));
+      } else {
+        alert(data.message || data.error || 'Failed to generate RFID');
       }
     } catch (error) {
       console.error('Error generating RFID:', error);
+      alert('Network error while generating RFID');
     }
   };
 
@@ -95,7 +101,7 @@ const Students = () => {
         }
       });
 
-      const response = await fetch('/api/students/create', {
+      const response = await fetch('http://localhost:5000/api/students/create', {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${token}`
@@ -122,7 +128,7 @@ const Students = () => {
     try {
       const token = localStorage.getItem('token');
       const newStatus = confirmToggle.status === 'active' ? 'inactive' : 'active';
-      const response = await fetch(`/api/students/${studentId}/status`, {
+      const response = await fetch(`http://localhost:5000/api/students/${studentId}/status`, {
         method: 'PATCH',
         headers: { 
           'Content-Type': 'application/json',
@@ -145,7 +151,7 @@ const Students = () => {
   const handleDeleteStudent = async (studentId) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/students/${studentId}`, {
+      const response = await fetch(`http://localhost:5000/api/students/${studentId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });

@@ -1,7 +1,11 @@
 const mysql = require("mysql2");
-require("dotenv").config();
+require("dotenv").config({ path: "./.env" });
+
+console.log("Database URL:", process.env.DATABASE_URL);
 
 const isLocal = process.env.DATABASE_URL.includes('localhost') || process.env.DATABASE_URL.includes('127.0.0.1');
+
+console.log("Is Local:", isLocal);
 
 const pool = mysql.createPool({
   uri: process.env.DATABASE_URL,
@@ -11,22 +15,16 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-  enableKeepAlive: true,
-  keepAliveInitialDelay: 10000,
-  connectTimeout: 30000 // 30 seconds
+  connectTimeout: 20000 // 20 seconds timeout
 });
 
-// For compatibility with the rest of the app, we export the pool as 'connection'
-const connection = pool;
-
+console.log("Attempting connection...");
 pool.getConnection((err, conn) => {
   if (err) {
-    console.log("Database Connection Failed");
-    console.error(err);
+    console.error("❌ Database Connection Failed via mysql2:", err);
   } else {
-    console.log("Database Connected Successfully (Pool)");
+    console.log("✅ Database Connected Successfully via mysql2!");
     conn.release();
   }
+  pool.end();
 });
-
-module.exports = pool;

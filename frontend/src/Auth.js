@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './Login.css';
-import { ShieldLock, Wifi, Grid, Person, XCircleFill, Eye, EyeSlash, Sun, MoonFill } from 'react-bootstrap-icons';
+import { ShieldLock, Wifi, Grid, Person, XCircleFill, Eye, EyeSlash } from 'react-bootstrap-icons';
 
 const Auth = ({ onLogin, setPage, setRegisterRole, theme, toggleTheme }) => {
     const [role, setRole] = useState('administrator');
@@ -196,7 +196,7 @@ const Auth = ({ onLogin, setPage, setRegisterRole, theme, toggleTheme }) => {
             <div className="row g-0 h-100">
                 {/* Left Side: Branding */}
                 <div className={`col-lg-6 d-none d-lg-flex flex-column justify-content-center align-items-start p-5 branding-section ${theme === 'dark' ? 'bg-dark-navy' : 'bg-light-gray'}`}>
-                    <div className="brand-header mb-5">
+                    <div className="brand-header mb-5" onClick={() => setPage('landing')} style={{ cursor: 'pointer' }}>
                         <div className="logo-box me-2">
                             <span className="logo-icon">💳</span>
                         </div>

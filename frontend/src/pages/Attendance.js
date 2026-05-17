@@ -2,7 +2,7 @@
 
 
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 const Attendance = () => {
   // --- State Management ---
@@ -16,15 +16,15 @@ const Attendance = () => {
   const [loading, setLoading] = useState(true);
 
   // --- Data Fetching ---
-  const fetchAttendanceAndStats = async () => {
+  const fetchAttendanceAndStats = useCallback(async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
       const query = new URLSearchParams({ date: selectedDate, class: selectedClass, search: searchTerm }).toString();
       
       const [attRes, statsRes] = await Promise.all([
-        fetch(`/api/attendance?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`/api/attendance/stats?date=${selectedDate}`, { headers: { Authorization: `Bearer ${token}` } })
+        fetch(`http://localhost:5000/api/attendance?${query}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`http://localhost:5000/api/attendance/stats?date=${selectedDate}`, { headers: { Authorization: `Bearer ${token}` } })
       ]);
       
       const attData = await attRes.json();
@@ -37,14 +37,14 @@ const Attendance = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedDate, selectedClass, searchTerm]);
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
       fetchAttendanceAndStats();
     }, 300);
     return () => clearTimeout(delayDebounceFn);
-  }, [searchTerm, selectedClass, selectedDate]);
+  }, [fetchAttendanceAndStats]);
 
   // --- Logic ---
   const toggleScanMode = async (studentDbId, currentStatus) => {
@@ -53,7 +53,7 @@ const Attendance = () => {
       setAttendanceData(prev => prev.map(s => s.dbId === studentDbId ? { ...s, rfidEnabled: !currentStatus } : s));
       
       const token = localStorage.getItem('token');
-      await fetch(`/api/attendance/rfid-toggle/${studentDbId}`, {
+      await fetch(`http://localhost:5000/api/attendance/rfid-toggle/${studentDbId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ date: selectedDate, enabled: !currentStatus })
@@ -71,7 +71,7 @@ const Attendance = () => {
     
     try {
       const token = localStorage.getItem('token');
-      await fetch(`/api/attendance/${attendanceId}`, {
+      await fetch(`http://localhost:5000/api/attendance/${attendanceId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -84,7 +84,7 @@ const Attendance = () => {
   const handleManualCheckIn = async (studentDbId) => {
     try {
       const token = localStorage.getItem('token');
-      await fetch('/api/attendance/check-in', {
+      await fetch('http://localhost:5000/api/attendance/check-in', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ studentDbId, date: selectedDate })

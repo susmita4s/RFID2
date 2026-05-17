@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { Html5QrcodeScanner } from "html5-qrcode";
 
-import { Sun, MoonFill } from 'react-bootstrap-icons';
+
 
 const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -28,6 +28,61 @@ const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
   const [student, setStudent] = useState(null);
   const [loadingStudent, setLoadingStudent] = useState(true);
   const [errorStudent, setErrorStudent] = useState('');
+
+  const addNotification = useCallback((title, msg) => {
+    const id = Date.now();
+    setNotifications(prev => [...prev, { id, title, msg }]);
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    }, 4000);
+  }, []);
+
+  const fetchTransactions = useCallback(async (studentId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`http://localhost:5000/api/wallet/transactions?studentId=${studentId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok && data.transactions) {
+        setTransactions(data.transactions);
+      }
+    } catch (err) {
+      console.error("Error fetching transactions:", err);
+    }
+  }, []);
+
+  const handleScanRfid = useCallback(async (tagOverride = null) => {
+    const tag = tagOverride || rfidInput.trim();
+    if (!tag) {
+      setScanError("Please enter an RFID tag");
+      return;
+    }
+    
+    setScanningRfid(true);
+    setScanError("");
+    setScannedStudent(null);
+    
+    try {
+      const res = await fetch("http://localhost:5000/api/rfid/scan-wallet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rfid_tag: tag })
+      });
+      const data = await res.json();
+      
+      if (res.ok && data.success) {
+        setScannedStudent(data.student);
+      } else {
+        setScanError(data.message || "Invalid RFID tag");
+      }
+    } catch (err) {
+      setScanError("Scanner connection failed.");
+      console.error(err);
+    } finally {
+      setScanningRfid(false);
+    }
+  }, [rfidInput]);
 
   // Fetch real student data and transactions from backend
   useEffect(() => {
@@ -76,22 +131,9 @@ const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
     };
     
     fetchData();
-  }, []);
+  }, [fetchTransactions]);
 
-  const fetchTransactions = async (studentId) => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5000/api/wallet/transactions?studentId=${studentId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (res.ok && data.transactions) {
-        setTransactions(data.transactions);
-      }
-    } catch (err) {
-      console.error("Error fetching transactions:", err);
-    }
-  };
+
 
   // QR Scanner Initialization
   useEffect(() => {
@@ -120,7 +162,7 @@ const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
         scannerRef.current = null;
       }
     };
-  }, [showQrScanner]);
+  }, [showQrScanner, handleScanRfid]);
 
   const recentActivities = [
     { time: "02:15 PM", action: "Library", desc: "Returned 'Java Programming'", icon: "book-half", color: "#6f42c1" },
@@ -134,15 +176,9 @@ const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
       addNotification("Bus Arrival", "Route 14 has entered the school premises.");
     }, 5000);
     return () => clearTimeout(timer);
-  }, []);
+  }, [addNotification]);
 
-  const addNotification = (title, msg) => {
-    const id = Date.now();
-    setNotifications(prev => [...prev, { id, title, msg }]);
-    setTimeout(() => {
-      setNotifications(prev => prev.filter(n => n.id !== id));
-    }, 4000);
-  };
+
 
   // --- HANDLERS ---
   const handleRecharge = async () => {
@@ -232,37 +268,7 @@ const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
     }
   };
 
-  const handleScanRfid = async (tagOverride = null) => {
-    const tag = tagOverride || rfidInput.trim();
-    if (!tag) {
-      setScanError("Please enter an RFID tag");
-      return;
-    }
-    
-    setScanningRfid(true);
-    setScanError("");
-    setScannedStudent(null);
-    
-    try {
-      const res = await fetch("http://localhost:5000/api/rfid/scan-wallet", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rfid_tag: rfidInput.trim() })
-      });
-      const data = await res.json();
-      
-      if (res.ok && data.success) {
-        setScannedStudent(data.student);
-      } else {
-        setScanError(data.message || "Invalid RFID tag");
-      }
-    } catch (err) {
-      setScanError("Scanner connection failed.");
-      console.error(err);
-    } finally {
-      setScanningRfid(false);
-    }
-  };
+
 
   const handleAdminChat = () => {
     alert("Initiating secure chat with School Administrator...");

@@ -35,9 +35,12 @@ router.post('/send-activation', verifyToken, async (req, res) => {
     if (parentUser) {
       // Parent already exists (maybe re-registered or duplicate) — just re-send activation
       // Force them to verify again so the complete flow always occurs
+      const nameParts = (parentName || 'Parent').split(' ');
       await prisma.user.update({
         where: { email: parentEmail },
         data: { 
+          firstName: nameParts[0] || 'Parent',
+          lastName:  nameParts.slice(1).join(' ') || '',
           isVerified: false, 
           activationToken, 
           activationExpiry 

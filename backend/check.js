@@ -15,18 +15,18 @@ async function checkDatabase() {
   try {
     // ── Users ────────────────────────────────────────────────────────────────
     const users = await prisma.user.findMany({
-      select: { id: true, name: true, email: true, role: true, createdAt: true },
+      select: { id: true, firstName: true, lastName: true, email: true, role: true, createdAt: true },
     });
     console.log(`\n👤 Users (${users.length} total):`);
-    users.forEach(u => console.log(`   [${u.role.toUpperCase()}] ${u.name} — ${u.email}`));
+    users.forEach(u => console.log(`   [${u.role.toUpperCase()}] ${u.firstName} ${u.lastName} — ${u.email}`));
 
     // ── Students ─────────────────────────────────────────────────────────────
     const students = await prisma.student.findMany({
-      select: { id: true, name: true, rollNumber: true, class: true, section: true, rfidTag: true, isActive: true },
+      select: { id: true, fullName: true, rollNumber: true, className: true, section: true, rfidTag: true, isActive: true },
     });
     console.log(`\n🎓 Students (${students.length} total):`);
     students.forEach(s =>
-      console.log(`   [${s.rollNumber}] ${s.name} — Class ${s.class}-${s.section} | RFID: ${s.rfidTag ?? 'N/A'} | Active: ${s.isActive}`)
+      console.log(`   [${s.rollNumber}] ${s.fullName} — Class ${s.className}-${s.section} | RFID: ${s.rfidTag ?? 'N/A'} | Active: ${s.isActive}`)
     );
 
     // ── Attendance ────────────────────────────────────────────────────────────
@@ -36,7 +36,7 @@ async function checkDatabase() {
     console.log(`\n📋 Attendance (${attendance.length} records): ${presentCount} present, ${absentCount} absent`);
 
     // ── Bus Logs ──────────────────────────────────────────────────────────────
-    const busLogs = await prisma.busLog.findMany();
+    const busLogs = await prisma.boardingLog.findMany();
     console.log(`\n🚌 Bus Logs (${busLogs.length} records)`);
 
     // ── Library Logs ──────────────────────────────────────────────────────────

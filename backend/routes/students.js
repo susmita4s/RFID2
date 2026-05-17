@@ -222,6 +222,8 @@ router.post('/create', verifyToken, upload.single('profileImage'), async (req, r
           await prisma.user.update({
             where: { email },
             data:  { 
+                firstName: guardianName ? guardianName.split(' ')[0] : 'Parent',
+                lastName:  guardianName ? guardianName.split(' ').slice(1).join(' ') : '',
                 isVerified: false,
                 activationToken, 
                 activationExpiry 
@@ -246,7 +248,12 @@ router.post('/create', verifyToken, upload.single('profileImage'), async (req, r
 
           await prisma.user.update({
             where: { email },
-            data:  { activationToken, activationExpiry }
+            data:  { 
+                firstName: guardianName ? guardianName.split(' ')[0] : 'Parent',
+                lastName:  guardianName ? guardianName.split(' ').slice(1).join(' ') : '',
+                activationToken, 
+                activationExpiry 
+            }
           });
 
           await prisma.student.update({

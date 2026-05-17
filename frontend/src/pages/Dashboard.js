@@ -6,7 +6,7 @@ import Library from './Library';
 import Payments from './Payments';
 import Settings from './Settings';
 import BusBoarding from './BusBoarding';
-import { Sun, MoonFill } from 'react-bootstrap-icons';
+
 
 const dashStyles = `
   .dashboard-container { 
@@ -398,6 +398,14 @@ const Dashboard = ({ onLogout, theme, toggleTheme }) => {
           </div>
 
           <div className="d-flex align-items-center">
+            {/* Theme Toggle Button */}
+            <div className="theme-toggle-wrapper" onClick={toggleTheme}>
+              <div className={`theme-switch ${theme === 'dark' ? 'active' : ''}`}></div>
+              <span className="ms-1 small fw-bold">
+                {theme === 'dark' ? <i className="bi bi-moon-stars-fill text-info"></i> : <i className="bi bi-sun-fill text-warning"></i>}
+                <span className="ms-2 d-none d-lg-inline">{theme === 'dark' ? 'Dark Mode' : 'Light Mode'}</span>
+              </span>
+            </div>
 
 
             <div className="position-relative">

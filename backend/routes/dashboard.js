@@ -38,7 +38,8 @@ router.get('/stats', verifyToken, async (req, res) => {
         date: {
           gte: todayStart,
           lte: todayEnd
-        }
+        },
+        status: { not: 'absent' }
       }
     });
 
@@ -94,10 +95,16 @@ router.get('/activities', verifyToken, async (req, res) => {
   try {
     const adminFilter = req.user.role === 'admin' ? { adminId: req.user.id } : {};
 
-    // Fetch latest 5 RFID activities
+    const now = new Date();
+    const todayStart = new Date(now.setHours(0, 0, 0, 0));
+    const todayEnd = new Date(now.setHours(23, 59, 59, 999));
+
+    // Fetch latest 5 unique student attendance records for TODAY that are NOT absent
     const rfidLogs = await prisma.attendance.findMany({
       where: {
         ...adminFilter,
+        date: { gte: todayStart, lte: todayEnd },
+        status: { not: 'absent' },
         student: { isActive: true }
       },
       orderBy: { updatedAt: 'desc' },
@@ -110,12 +117,11 @@ router.get('/activities', verifyToken, async (req, res) => {
     });
 
     const formattedRfid = rfidLogs.map(log => {
-      let type = 'Entry';
-      let time = log.checkIn;
-      if (log.checkOut && (!log.checkIn || new Date(log.checkOut) > new Date(log.checkIn))) {
-        type = 'Exit';
-        time = log.checkOut;
-      }
+      // Determine if the last action was an Entry or Exit
+      const isExit = log.checkOut && (!log.checkIn || new Date(log.checkOut) > new Date(log.checkIn));
+      const type = isExit ? 'Exit' : 'Entry';
+      const time = isExit ? log.checkOut : log.checkIn;
+
       return {
         id: log.id,
         studentName: log.student?.fullName || 'Unknown Student',

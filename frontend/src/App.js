@@ -52,7 +52,7 @@ import SetPassword from './pages/SetPassword';
 import LandingPage from './LandingPage';
 import './Login.css'; 
 import './Responsive.css'; 
-import { Sun, MoonFill } from 'react-bootstrap-icons';
+
 
 const MainApp = () => {
   const [userRole, setUserRole] = useState(null);
@@ -60,7 +60,12 @@ const MainApp = () => {
   const [registerRole, setRegisterRole] = useState('parent');
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   
-  const [theme, setTheme] = useState('dark');
+  const [theme, setTheme] = useState(localStorage.getItem('app_theme') || 'dark');
+
+  // Sync theme to localStorage
+  useEffect(() => {
+    localStorage.setItem('app_theme', theme);
+  }, [theme]);
 
   useEffect(() => {
     const restoreSession = async () => {
@@ -122,35 +127,12 @@ const MainApp = () => {
 
   return (
     <div data-theme={theme} className="app-container">
-      {/* Global Theme Toggle */}
-      <div 
-        className="position-fixed" 
-        style={{ top: '25px', right: '25px', zIndex: 2000 }}
-      >
-        <div 
-          className="d-flex align-items-center gap-2 shadow-lg" 
-          onClick={toggleTheme} 
-          style={{ 
-            cursor: 'pointer', 
-            background: theme === 'dark' ? 'rgba(30, 41, 59, 0.8)' : 'rgba(255, 255, 255, 0.8)', 
-            padding: '8px 16px', 
-            borderRadius: '25px', 
-            border: '1px solid var(--border-color)',
-            backdropFilter: 'blur(10px)',
-            color: 'var(--text-main)'
-          }}
-        >
-          {theme === 'dark' ? <MoonFill size={14} className="text-info" /> : <Sun size={14} className="text-warning" />}
-          <span className="fw-bold small" style={{ fontSize: '12px' }}>{theme === 'dark' ? 'Dark Mode' : 'Light Mode'}</span>
-        </div>
-      </div>
-
-      {page === 'landing' ? (
-        <LandingPage onStart={() => setPage('login')} theme={theme} toggleTheme={toggleTheme} />
-      ) : userRole === 'admin' ? (
+      {userRole === 'admin' ? (
         <Dashboard onLogout={handleLogout} theme={theme} toggleTheme={toggleTheme} />
       ) : userRole === 'parent' ? (
         <ParentPortal onLogout={handleLogout} theme={theme} toggleTheme={toggleTheme} />
+      ) : page === 'landing' ? (
+        <LandingPage onStart={() => { setUserRole(null); setPage('login'); }} theme={theme} toggleTheme={toggleTheme} />
       ) : page === 'register' ? (
         <Register setPage={setPage} role={registerRole} onLogin={handleLogin} theme={theme} toggleTheme={toggleTheme} />
       ) : page === 'forgot-password' ? (

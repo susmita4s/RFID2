@@ -99,13 +99,22 @@ const ForgotPassword = ({ setPage, theme }) => {
     <div className={`container-fluid vh-100 d-flex align-items-center justify-content-center position-relative ${theme === 'dark' ? 'bg-dark-navy' : 'bg-light-gray'}`}>
       <div className="login-card w-100" style={{ maxWidth: "450px" }}>
         
-        {/* Back Button */}
-        <button 
-          onClick={() => setPage("login")}
-          className="btn btn-link text-light-muted text-decoration-none p-0 mb-3 d-flex align-items-center"
-        >
-          <ArrowLeft className="me-2" /> Back to Login
-        </button>
+        {/* Back Buttons */}
+        <div className="d-flex justify-content-between align-items-center mb-3">
+          <button 
+            onClick={() => setPage("login")}
+            className="btn btn-link text-light-muted text-decoration-none p-0 d-flex align-items-center"
+          >
+            <ArrowLeft className="me-2" /> Back to Login
+          </button>
+          <button 
+            onClick={() => setPage("landing")}
+            className="btn btn-link text-cyan text-decoration-none p-0 small"
+            style={{ opacity: 0.8 }}
+          >
+            Back to Home
+          </button>
+        </div>
 
         <div className="text-center mb-4">
           <h2 className={`${theme === 'dark' ? 'text-white' : 'text-dark'} fw-bold`}>Reset Password</h2>

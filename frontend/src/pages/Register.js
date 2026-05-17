@@ -354,8 +354,8 @@ const Register = ({ setPage, role = "parent", onLogin, theme }) => {
             </button>
           </form>
 
-          <div className="text-center mt-4">
-            <p className="text-light-muted small">
+          <div className="text-center mt-4 d-flex flex-column gap-2">
+            <p className="text-light-muted small mb-0">
               Already have an account?{" "}
               <span
                 onClick={() => setPage("login")}
@@ -365,6 +365,13 @@ const Register = ({ setPage, role = "parent", onLogin, theme }) => {
                 Login here
               </span>
             </p>
+            <span
+              onClick={() => setPage("landing")}
+              className="text-cyan small text-decoration-none"
+              style={{ cursor: "pointer", opacity: 0.8 }}
+            >
+              ← Back to Home
+            </span>
           </div>
         </div>
       </div>
