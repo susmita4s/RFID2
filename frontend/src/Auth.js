@@ -56,7 +56,7 @@ const Auth = ({ onLogin, setPage, setRegisterRole, theme, toggleTheme }) => {
         setVerifying(true);
         setError('');
         try {
-            const res = await fetch('http://localhost:5000/api/parents/verify-otp', {
+            const res = await fetch('/api/parents/verify-otp', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email: otpEmail, otp: otpValue })
@@ -84,8 +84,8 @@ const Auth = ({ onLogin, setPage, setRegisterRole, theme, toggleTheme }) => {
 
         try {
             const loginUrl = role === 'parent' 
-                ? 'http://localhost:5000/api/parents/login' 
-                : 'http://localhost:5000/api/auth/login';
+                ? '/api/parents/login' 
+                : '/api/auth/login';
 
             const response = await fetch(loginUrl, {
                 method: 'POST',
@@ -362,9 +362,8 @@ const Auth = ({ onLogin, setPage, setRegisterRole, theme, toggleTheme }) => {
                         </div>
 
                         <div className="demo-box mt-4 p-3 text-center">
-                            <p className="text-light-muted small mb-1">Demo Credentials</p>
-                            <span className="text-white small opacity-75">Admin: admin@school.com / admin123</span><br/>
-                            <span className="text-white small opacity-75">Parent: parent1@example.com / demo123 (if seeded)</span>
+                            <p className="text-light-muted small mb-1">Login Credentials</p>
+                            <span className="text-white small opacity-75">Admin: hdey1381@gmail.com / Admin@1234</span>
                         </div>
                     </div>
                 </div>

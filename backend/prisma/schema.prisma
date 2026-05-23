@@ -335,3 +335,26 @@ model RolePermission {
   schoolId            Int?
   school              School?  @relation(fields: [schoolId], references: [id])
 }
+
+// ── AI Parent Assistant Models ───────────────────────────────────────────────
+
+model AIChatMessage {
+  id        Int      @id @default(autoincrement())
+  parentId  Int
+  studentId Int
+  role      String   // "user" | "assistant"
+  message   String   @db.Text
+  createdAt DateTime @default(now())
+
+  // We could add relations to User and Student if needed, but keeping it simple as requested
+}
+
+model AIEscalation {
+  id        Int      @id @default(autoincrement())
+  parentId  Int
+  studentId Int
+  issue     String   @db.Text
+  status    String   @default("pending") // "pending" | "resolved"
+  createdAt DateTime @default(now())
+}
+

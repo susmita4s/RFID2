@@ -1,12 +1,10 @@
+require('dotenv').config();
 const express = require('express');
 require("./db");
 const cors = require('cors');
-const dotenv = require('dotenv');
 
 const http = require('http');
 const { Server } = require('socket.io');
-
-dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
@@ -55,6 +53,11 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+app.use((req, res, next) => {
+  console.log(`[HTTP] ${req.method} ${req.url}`);
+  next();
+});
+
 // ─── Routes ──────────────────────────────────────────────────────────────────
 // Health check
 app.get('/', (req, res) => {
@@ -93,12 +96,14 @@ const walletRoutes = require('./routes/wallet');
 const attendanceRoutes = require('./routes/attendance');
 const paymentRechargeRoutes = require('./routes/payment_recharge');
 const chatRoutes = require('./routes/chat');
+const aiChatRoutes = require('./routes/ai-chat');
 app.use('/api/students', studentRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/payment', paymentRechargeRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/ai-chat', aiChatRoutes);
 
 // ─── Bus Routes ───────────────────────────────────────────────────────────────
 const busRoutes = require('./routes/bus');

@@ -1,39 +1,24 @@
 const { PrismaClient } = require('@prisma/client');
-require('dotenv').config();
+const prisma = new PrismaClient();
 
-const url1 = process.env.DATABASE_URL;
-const url2 = `${process.env.DATABASE_URL}?sslaccept=strict`;
-const url3 = `${process.env.DATABASE_URL}?sslcert=`;
-
-async function testConnection(url, name) {
-  console.log(`Testing ${name}...`);
-  const prisma = new PrismaClient({
-    datasources: {
-      db: {
-        url: url,
-      },
-    },
-  });
+async function test() {
   try {
-    await prisma.$queryRaw`SELECT 1`;
-    console.log(`✅ Success: ${name} connected!`);
+    const users = await prisma.user.findMany({
+      select: { id: true, email: true, role: true, isVerified: true, firstName: true, lastName: true }
+    });
+    console.log('Total users in DB:', users.length);
+    users.forEach(u => {
+      console.log(`  - ${u.email} | role: ${u.role} | verified: ${u.isVerified} | name: ${u.firstName} ${u.lastName}`);
+    });
+    
+    const schools = await prisma.school.findMany({ select: { id: true, name: true } });
+    console.log('\nTotal schools:', schools.length);
+    schools.forEach(s => console.log(`  - ${s.id}: ${s.name}`));
+  } catch (err) {
+    console.log('❌ ERROR:', err.message);
+  } finally {
     await prisma.$disconnect();
-    return true;
-  } catch (error) {
-    console.error(`❌ Failed: ${name} - ${error.message.split('\n')[0]}`);
-    await prisma.$disconnect();
-    return false;
   }
 }
 
-async function run() {
-  const success1 = await testConnection(url1, 'Original URL');
-  if (!success1) {
-    const success2 = await testConnection(url2, 'URL with ?sslaccept=strict');
-    if (!success2) {
-      await testConnection(url3, 'URL with ?sslcert=');
-    }
-  }
-}
-
-run();
+test();

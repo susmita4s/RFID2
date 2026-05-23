@@ -12,12 +12,51 @@ const prisma = require('../prismaClient');
 // ── Helper: Generate secure activation token ──────────────────────────────────
 const generateActivationToken = () => crypto.randomBytes(32).toString('hex');
 
-// Helper to convert frontend date string "YYYY-MM-DD" to safe local midnight DB date
+// Helper to convert frontend date string to safe local midnight DB date
 const convertToLocalDate = (dateStr) => {
   if (!dateStr) return new Date();
-  // e.g. "2026-05-08" -> local Date without UTC shift
-  const [year, month, day] = dateStr.split('-');
-  return new Date(year, month - 1, day);
+  
+  let str = String(dateStr).trim().replace(/\//g, '-');
+  const parts = str.split('-');
+  
+  if (parts.length === 3) {
+    let year, month, day;
+    
+    if (parts[0].length === 4) {
+      // YYYY-MM-DD
+      year = parseInt(parts[0], 10);
+      month = parseInt(parts[1], 10);
+      day = parseInt(parts[2], 10);
+    } else if (parts[2].length === 4) {
+      // DD-MM-YYYY or MM-DD-YYYY
+      year = parseInt(parts[2], 10);
+      let p0 = parseInt(parts[0], 10);
+      let p1 = parseInt(parts[1], 10);
+      if (p1 > 12) {
+        month = p0; // MM-DD-YYYY
+        day = p1;
+      } else {
+        day = p0; // Default to DD-MM-YYYY
+        month = p1;
+      }
+    } else {
+      // DD-MM-YY
+      let p0 = parseInt(parts[0], 10);
+      let p1 = parseInt(parts[1], 10);
+      let p2 = parseInt(parts[2], 10);
+      year = p2 < 100 ? 2000 + p2 : p2;
+      day = p0;
+      month = p1;
+    }
+    
+    if (year && month && day) {
+      return new Date(year, month - 1, day);
+    }
+  }
+  
+  // Fallback
+  const parsed = new Date(dateStr);
+  return isNaN(parsed.getTime()) ? new Date() : parsed;
 };
 
 // ── GET /api/students ─────────────────────────────────────────────────────────
@@ -79,25 +118,20 @@ router.get('/:id', verifyToken, async (req, res) => {
 });
 
 // ── POST /api/students/create ─────────────────────────────────────────────────
-router.post('/create', verifyToken, upload.single('profileImage'), async (req, res) => {
-  const { fullName, email, phoneNumber, gender, className, guardianName, rfidTag, joinedDate } = req.body;
-  const profileImage = req.file ? req.file.path : null;
-
-  if (!fullName || !email || !phoneNumber || !className) {
-    return res.status(400).json({ success: false, message: 'Missing required fields' });
-  }
-
+async function registerSingleStudent({
+  fullName, email, phoneNumber, gender, className, guardianName, rfidTag, joinedDate, profileImage
+}, adminId, reqInfo) {
   try {
     // Generate STU-YYYY-XXX
     const year = new Date().getFullYear();
-    
-    // Fetch the last created student ID for this year to properly increment
-    const lastStudent = await prisma.student.findFirst({
-      where: { studentId: { startsWith: `STU-${year}-` } },
-      orderBy: { studentId: 'desc' }
-    });
-    
-    let nextNum = 1;
+  
+  // Fetch the last created student ID for this year to properly increment
+  const lastStudent = await prisma.student.findFirst({
+    where: { studentId: { startsWith: `STU-${year}-` } },
+    orderBy: { studentId: 'desc' }
+  });
+  
+  let nextNum = 1;
     if (lastStudent && lastStudent.studentId) {
       const parts = lastStudent.studentId.split('-');
       if (parts.length === 3 && !isNaN(parts[2])) {
@@ -126,7 +160,7 @@ router.post('/create', verifyToken, upload.single('profileImage'), async (req, r
           rfidTag: rfidTag || null,
           joinedDate: localJoinedDate,
           rollNumber,
-          adminId: req.user.id,
+          adminId: adminId,
           status: 'active',
           profileImage
         }
@@ -186,7 +220,7 @@ router.post('/create', verifyToken, upload.single('profileImage'), async (req, r
           });
 
           // Build and send activation email
-          const frontendUrl    = process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:3000';
+          const frontendUrl = reqInfo.frontendUrl;
           const activationLink = `${frontendUrl}/parent/set-password?token=${activationToken}`;
 
           const emailResult = await sendActivationEmail(
@@ -200,16 +234,6 @@ router.post('/create', verifyToken, upload.single('profileImage'), async (req, r
             console.warn(`⚠️ Activation email could not be sent to ${email}:`, emailResult.error);
           } else {
             console.log(`✅ Parent activation email dispatched to ${email}`);
-          }
-
-          // In dev mode, expose the link in the response for easy testing
-          if (process.env.NODE_ENV !== 'production') {
-            return res.status(201).json({
-              success: true,
-              message: 'Student registered successfully. Parent activation email sent.',
-              student,
-              _devActivationLink: activationLink
-            });
           }
         } else if (parentUser.isVerified) {
           // Parent already has an active account — but user wants the flow to happen every time.
@@ -233,7 +257,7 @@ router.post('/create', verifyToken, upload.single('profileImage'), async (req, r
             data:  { userId: parentUser.id }
           });
 
-          const frontendUrl    = process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:3000';
+          const frontendUrl = reqInfo.frontendUrl;
           const activationLink = `${frontendUrl}/parent/set-password?token=${activationToken}`;
 
           await sendActivationEmail(email, guardianName || 'Parent', fullName, activationLink);
@@ -259,19 +283,10 @@ router.post('/create', verifyToken, upload.single('profileImage'), async (req, r
             data:  { userId: parentUser.id }
           });
 
-          const frontendUrl    = process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:3000';
+          const frontendUrl = reqInfo.frontendUrl;
           const activationLink = `${frontendUrl}/parent/set-password?token=${activationToken}`;
 
           await sendActivationEmail(email, guardianName || 'Parent', fullName, activationLink);
-
-          if (process.env.NODE_ENV !== 'production') {
-            return res.status(201).json({
-              success: true,
-              message: 'Student registered. Parent activation email resent.',
-              student,
-              _devActivationLink: activationLink
-            });
-          }
         }
       } catch (parentErr) {
         // Parent activation failure must NOT block the student creation response
@@ -280,21 +295,111 @@ router.post('/create', verifyToken, upload.single('profileImage'), async (req, r
     }
     // ─────────────────────────────────────────────────────────────────────────
 
-    res.status(201).json({ success: true, message: 'Student registered successfully', student });
+    return { success: true, student };
   } catch (error) {
     console.error('Create student error:', error);
     if (error.code === 'P2002') {
       const target = error.meta?.target || '';
+      let msg = 'A duplicate record exists (Email, RFID, or ID).';
       if (target.includes('email') || target.includes('parentEmail')) {
-        return res.status(409).json({ success: false, message: 'Email is already registered.' });
+        msg = 'Email is already registered.';
+      } else if (target.includes('rfidTag')) {
+        msg = 'RFID Tag is already assigned to another user.';
       }
-      if (target.includes('rfidTag')) {
-        return res.status(409).json({ success: false, message: 'RFID Tag is already assigned to another user.' });
-      }
-      return res.status(409).json({ success: false, message: 'A duplicate record exists (Email, RFID, or ID).' });
+      throw new Error(msg);
     }
-    res.status(500).json({ success: false, message: 'Failed to create student.' });
+    throw new Error('Failed to create student.');
   }
+}
+
+router.post('/create', verifyToken, upload.single('profileImage'), async (req, res) => {
+  const { fullName, email, phoneNumber, gender, className, guardianName, rfidTag, joinedDate } = req.body;
+  const profileImage = req.file ? req.file.path : null;
+
+  if (!fullName || !email || !phoneNumber || !className) {
+    return res.status(400).json({ success: false, message: 'Missing required fields' });
+  }
+
+  try {
+    const frontendUrl = process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:3000';
+    const result = await registerSingleStudent({
+      fullName, email, phoneNumber, gender, className, guardianName, rfidTag, joinedDate, profileImage
+    }, req.user.id, { frontendUrl });
+    
+    res.status(201).json({ success: true, message: 'Student registered successfully', student: result.student });
+  } catch (error) {
+    res.status(error.message.includes('duplicate') || error.message.includes('already') ? 409 : 500)
+       .json({ success: false, message: error.message });
+  }
+});
+
+// ── POST /api/students/import ─────────────────────────────────────────────────
+router.post('/import', verifyToken, async (req, res) => {
+  const { students } = req.body;
+  if (!students || !Array.isArray(students)) {
+    return res.status(400).json({ success: false, message: 'Invalid payload.' });
+  }
+
+  const frontendUrl = process.env.CLIENT_URL || process.env.FRONTEND_URL || 'http://localhost:3000';
+  let successCount = 0;
+  let failedCount = 0;
+  let duplicateCount = 0;
+  const failedRows = [];
+  
+  for (const [index, studentData] of students.entries()) {
+    try {
+      let rfidToAssign = studentData.rfidTag;
+      if (!rfidToAssign) {
+        // Auto generate RFID
+        let isUnique = false;
+        while (!isUnique) {
+          const randomHex = Math.random().toString(16).toUpperCase().substring(2, 6);
+          rfidToAssign = `RFID-${randomHex}`;
+          const existing = await prisma.student.findUnique({ where: { rfidTag: rfidToAssign } });
+          if (!existing) isUnique = true;
+        }
+      }
+
+      let profileImage = studentData.profileImage;
+      if (profileImage && profileImage.startsWith('http')) {
+        try {
+          const { cloudinary } = require('../cloudinary');
+          const uploadRes = await cloudinary.uploader.upload(profileImage, { folder: 'student_profiles' });
+          profileImage = uploadRes.secure_url;
+        } catch (imgErr) {
+          console.warn(`Could not upload image for ${studentData.fullName}:`, imgErr.message);
+          profileImage = null; // Proceed without image
+        }
+      }
+
+      await registerSingleStudent({
+        ...studentData,
+        rfidTag: rfidToAssign,
+        profileImage
+      }, req.user.id, { frontendUrl });
+      
+      successCount++;
+    } catch (error) {
+      failedCount++;
+      if (error.message.includes('already') || error.message.includes('duplicate')) {
+        duplicateCount++;
+      }
+      failedRows.push({
+        row: index + 1,
+        name: studentData.fullName,
+        error: error.message
+      });
+    }
+  }
+
+  res.json({
+    success: true,
+    total: students.length,
+    successCount,
+    failedCount,
+    duplicateCount,
+    failedRows
+  });
 });
 
 // ── PUT /api/students/:id ─────────────────────────────────────────────────────

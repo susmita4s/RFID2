@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-
+import Papa from 'papaparse';
 const Students = () => {
   // --- State Management ---
   const [students, setStudents] = useState([]);
@@ -24,6 +24,13 @@ const Students = () => {
   const [isOtherGender, setIsOtherGender] = useState(false);
 
   const [classes, setClasses] = useState(['All']);
+  
+  // CSV Import State
+  const [showImportDrawer, setShowImportDrawer] = useState(false);
+  const [csvFile, setCsvFile] = useState(null);
+  const [csvPreview, setCsvPreview] = useState(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importSummary, setImportSummary] = useState(null);
 
   // --- API Calls ---
   const fetchStudents = useCallback(async () => {
@@ -162,6 +169,117 @@ const Students = () => {
       }
     } catch (error) {
       console.error('Error deleting student:', error);
+    }
+  };
+
+  const handleDownloadSampleCsv = () => {
+    const csvContent = "data:text/csv;charset=utf-8,fullName,gender,class,emailAddress,phoneNumber,guardianName,joinedDate,rfidTag,profileImage\n" +
+                       "Arjun Sharma,Male,10-A,arjun@edu.com,9876543210,Raj Sharma,2026-05-19,RFID-1001,";
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "sample_students.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleCsvFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setCsvFile(file);
+      setImportSummary(null);
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        transformHeader: (h) => {
+          let t = h.trim().replace(/^\uFEFF/, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          if (t.includes('fullname') || (t.includes('name') && !t.includes('guardian') && !t.includes('parent'))) return 'fullName';
+          if (t.includes('class') || t.includes('grade')) return 'class';
+          if (t.includes('email')) return 'emailAddress';
+          if (t.includes('phone') || t.includes('mobile')) return 'phoneNumber';
+          if (t.includes('guardian') || t.includes('parent')) return 'guardianName';
+          if (t.includes('rfid') || t.includes('tag')) return 'rfidTag';
+          if (t.includes('gender')) return 'gender';
+          if (t.includes('join') || t.includes('date')) return 'joinedDate';
+          if (t.includes('image') || t.includes('profile') || t.includes('photo')) return 'profileImage';
+          return h.trim();
+        },
+        transform: (val) => val.trim(),
+        complete: (results) => {
+          const rows = results.data;
+          // Check if it failed to parse columns correctly
+          if (results.meta.fields && results.meta.fields.length === 1 && results.meta.fields[0].includes(',')) {
+              alert("Error parsing CSV. Please ensure it is comma-separated.");
+              return;
+          }
+          const preview = rows.map(row => {
+            const isValid = !!(row.fullName && row.class && row.emailAddress && row.phoneNumber);
+            return {
+              ...row,
+              isValid,
+              error: isValid ? null : 'Missing required fields'
+            };
+          });
+          // Check for duplicate RFIDs in the file
+          const rfidCounts = {};
+          preview.forEach(r => {
+            if (r.rfidTag) rfidCounts[r.rfidTag] = (rfidCounts[r.rfidTag] || 0) + 1;
+          });
+          preview.forEach(r => {
+            if (r.rfidTag && rfidCounts[r.rfidTag] > 1) {
+              r.isValid = false;
+              r.error = 'Duplicate RFID in file';
+            }
+          });
+          setCsvPreview(preview);
+        }
+      });
+    }
+  };
+
+  const handleImportStudents = async () => {
+    if (!csvPreview) return;
+    const validStudents = csvPreview.filter(r => r.isValid).map(r => ({
+      fullName: r.fullName,
+      gender: r.gender,
+      className: r.class,
+      email: r.emailAddress,
+      phoneNumber: r.phoneNumber,
+      guardianName: r.guardianName,
+      joinedDate: r.joinedDate,
+      rfidTag: r.rfidTag,
+      profileImage: r.profileImage
+    }));
+
+    if (validStudents.length === 0) {
+      alert("No valid rows to import.");
+      return;
+    }
+
+    setIsImporting(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5000/api/students/import', {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ students: validStudents })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setImportSummary(data);
+        fetchStudents();
+      } else {
+        alert(data.message || 'Import failed.');
+      }
+    } catch (error) {
+      console.error('Import error:', error);
+      alert('Network error during import.');
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -437,13 +555,18 @@ const Students = () => {
           <h2 className="fw-bold m-0 text-dark">Student Directory</h2>
           <p className="text-muted small">Real-time RFID access management</p>
         </div>
-        <button className="btn btn-dark px-4 py-2 rounded-3 shadow-sm d-flex align-items-center gap-2" onClick={() => {
-          setNewStudent({ fullName: '', gender: '', rfidTag: '', className: '', email: '', phoneNumber: '', guardianName: '', joinedDate: '' });
-          setIsOtherGender(false);
-          setShowAddModal(true);
-        }}>
-          <i className="bi bi-person-plus-fill"></i> Add Student
-        </button>
+        <div className="d-flex gap-2">
+          <button className="btn btn-outline-dark px-4 py-2 rounded-3 shadow-sm d-flex align-items-center gap-2" onClick={() => setShowImportDrawer(true)}>
+            <i className="bi bi-file-earmark-spreadsheet"></i> Import CSV
+          </button>
+          <button className="btn btn-dark px-4 py-2 rounded-3 shadow-sm d-flex align-items-center gap-2" onClick={() => {
+            setNewStudent({ fullName: '', gender: '', rfidTag: '', className: '', email: '', phoneNumber: '', guardianName: '', joinedDate: '' });
+            setIsOtherGender(false);
+            setShowAddModal(true);
+          }}>
+            <i className="bi bi-person-plus-fill"></i> Add Student
+          </button>
+        </div>
       </div>
 
       <div className="section-card mb-4 py-3 border-0 shadow-sm bg-white rounded-4">
@@ -533,6 +656,151 @@ const Students = () => {
         </div>
       </div>
 
+      {/* --- CSV Import Drawer --- */}
+      {showImportDrawer && (
+        <>
+          <div className="position-fixed top-0 start-0 w-100 h-100 modal-backdrop show" style={{ zIndex: 1040, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }} onClick={() => setShowImportDrawer(false)}></div>
+          <div className="position-fixed top-0 end-0 h-100 bg-white shadow-lg animate-slide-in-right" style={{ width: '100%', maxWidth: '600px', zIndex: 1050, overflowY: 'auto' }}>
+            <div className="d-flex justify-content-between align-items-center p-4 border-bottom" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', color: 'white' }}>
+              <h5 className="fw-bold m-0"><i className="bi bi-file-earmark-spreadsheet me-2"></i> Import Students from CSV</h5>
+              <button className="btn-close btn-close-white" onClick={() => setShowImportDrawer(false)}></button>
+            </div>
+            
+            <div className="p-4">
+              <div className="d-flex justify-content-between align-items-center mb-4">
+                <p className="text-muted small m-0">Upload a CSV file to bulk import student records.</p>
+                <button className="btn btn-sm btn-outline-dark fw-bold" onClick={handleDownloadSampleCsv}>
+                  <i className="bi bi-download"></i> Download Sample CSV
+                </button>
+              </div>
+
+              {!importSummary ? (
+                <>
+                  <div className="border border-2 border-dashed rounded-4 p-5 text-center bg-light mb-4 position-relative">
+                    <input 
+                      type="file" 
+                      accept=".csv" 
+                      className="position-absolute top-0 start-0 w-100 h-100 opacity-0 cursor-pointer"
+                      onChange={handleCsvFileChange} 
+                    />
+                    <div className="display-4 text-muted mb-3"><i className="bi bi-cloud-arrow-up"></i></div>
+                    <h6 className="fw-bold text-dark">Drag & Drop CSV here</h6>
+                    <p className="text-muted small">or click to browse from your computer</p>
+                    {csvFile && <div className="mt-3 badge bg-dark px-3 py-2">{csvFile.name}</div>}
+                  </div>
+
+                  {csvPreview && (
+                    <div className="mb-4">
+                      <h6 className="fw-bold mb-3 d-flex justify-content-between">
+                        CSV Preview
+                        <span className="badge bg-primary rounded-pill">{csvPreview.length} Rows</span>
+                      </h6>
+                      <div className="table-responsive rounded-3 border" style={{ maxHeight: '300px' }}>
+                        <table className="table table-sm table-hover m-0" style={{ fontSize: '0.8rem' }}>
+                          <thead className="table-light position-sticky top-0">
+                            <tr>
+                              <th>Status</th>
+                              <th>Name</th>
+                              <th>Class</th>
+                              <th>Email</th>
+                              <th>RFID</th>
+                              <th>Error</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {csvPreview.slice(0, 50).map((row, idx) => (
+                              <tr key={idx} className={!row.isValid ? 'table-danger' : ''}>
+                                <td>
+                                  {row.isValid ? <i className="bi bi-check-circle-fill text-success"></i> : <i className="bi bi-exclamation-circle-fill text-danger"></i>}
+                                </td>
+                                <td>{row.fullName}</td>
+                                <td>{row.class}</td>
+                                <td>{row.emailAddress}</td>
+                                <td>{row.rfidTag || '-'}</td>
+                                <td className="text-danger">{row.error}</td>
+                              </tr>
+                            ))}
+                            {csvPreview.length > 50 && (
+                              <tr><td colSpan="6" className="text-center text-muted py-2">...and {csvPreview.length - 50} more rows</td></tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                      
+                      <div className="d-flex gap-2 mt-4">
+                        <button 
+                          className="btn btn-dark flex-grow-1 py-2 fw-bold" 
+                          onClick={handleImportStudents}
+                          disabled={isImporting || !csvPreview.some(r => r.isValid)}
+                        >
+                          {isImporting ? (
+                            <><span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Importing...</>
+                          ) : (
+                            <><i className="bi bi-check2-all"></i> Import {csvPreview.filter(r => r.isValid).length} Valid Students</>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-center animate-fade-in py-5">
+                  <div className="display-1 text-success mb-3"><i className="bi bi-check-circle-fill"></i></div>
+                  <h4 className="fw-bold text-dark">Import Completed</h4>
+                  
+                  <div className="row g-3 mt-4 text-start">
+                    <div className="col-6">
+                      <div className="p-3 bg-light rounded-3 border">
+                        <small className="text-muted d-block small-text">TOTAL ROWS</small>
+                        <h4 className="m-0 fw-bold">{importSummary.total}</h4>
+                      </div>
+                    </div>
+                    <div className="col-6">
+                      <div className="p-3 bg-success-subtle rounded-3 border border-success">
+                        <small className="text-success d-block small-text">SUCCESSFUL</small>
+                        <h4 className="m-0 fw-bold text-success">{importSummary.successCount}</h4>
+                      </div>
+                    </div>
+                    <div className="col-6">
+                      <div className="p-3 bg-danger-subtle rounded-3 border border-danger">
+                        <small className="text-danger d-block small-text">FAILED</small>
+                        <h4 className="m-0 fw-bold text-danger">{importSummary.failedCount}</h4>
+                      </div>
+                    </div>
+                    <div className="col-6">
+                      <div className="p-3 bg-warning-subtle rounded-3 border border-warning" style={{ color: '#b45309' }}>
+                        <small className="d-block small-text" style={{ color: '#b45309' }}>DUPLICATES</small>
+                        <h4 className="m-0 fw-bold">{importSummary.duplicateCount}</h4>
+                      </div>
+                    </div>
+                  </div>
+
+                  {importSummary.failedRows && importSummary.failedRows.length > 0 && (
+                    <div className="mt-4 text-start">
+                      <h6 className="fw-bold text-danger mb-2">Failed Rows Details</h6>
+                      <div className="bg-light border rounded-3 p-3" style={{ maxHeight: '150px', overflowY: 'auto' }}>
+                        <ul className="m-0 ps-3 small text-muted">
+                          {importSummary.failedRows.map((err, idx) => (
+                            <li key={idx}>Row {err.row} ({err.name}): {err.error}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  )}
+
+                  <button className="btn btn-dark w-100 mt-4 py-2 fw-bold" onClick={() => {
+                    setShowImportDrawer(false);
+                    setCsvFile(null);
+                    setCsvPreview(null);
+                    setImportSummary(null);
+                  }}>Done</button>
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
       <style>{`
         .students-container { padding: 0.5rem 0; transition: all 0.3s ease; }
         .btn-dark { background-color: #0f172a !important; border: none; transition: all 0.3s ease; }
@@ -548,6 +816,7 @@ const Students = () => {
         .section-card { background: var(--card-bg) !important; border: 1px solid var(--border-color) !important; }
         .bg-success-subtle { background-color: rgba(16, 185, 129, 0.1) !important; color: #10b981 !important; }
         .bg-danger-subtle { background-color: rgba(239, 68, 68, 0.1) !important; color: #ef4444 !important; }
+        .bg-warning-subtle { background-color: rgba(245, 158, 11, 0.1) !important; }
         
         .search-input { background: var(--input-bg); border: 1px solid var(--input-border); color: var(--text-main); }
         .form-control, .form-select { background-color: var(--input-bg); border-color: var(--input-border); color: var(--text-main); }
@@ -557,6 +826,11 @@ const Students = () => {
         .dropdown-menu-custom { background: var(--card-bg); border: 1px solid var(--border-color); box-shadow: var(--card-shadow); }
         .small-text { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 2px; }
         .bg-emerald { background-color: #10b981 !important; }
+        
+        .animate-slide-in-right { animation: slideInRight 0.3s ease forwards; }
+        @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
+        .border-dashed { border-style: dashed !important; }
+        .cursor-pointer { cursor: pointer; }
         
         @media print {
           body { background: white !important; margin: 0; padding: 0; }

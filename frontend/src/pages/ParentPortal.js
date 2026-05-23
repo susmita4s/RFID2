@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { io } from 'socket.io-client';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import Meetings from './Meetings';
+import FloatingChatButton from '../components/ai-chat/FloatingChatButton';
 
 const BACKEND = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 
@@ -1143,8 +1144,9 @@ const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
             </div>
           </div>
         )}
-
       </div>
+
+      <FloatingChatButton theme={theme} token={localStorage.getItem('token')} />
     </div>
   );
 };

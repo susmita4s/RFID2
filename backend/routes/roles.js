@@ -10,8 +10,14 @@ const prisma = new PrismaClient();
 // Get all roles
 router.get('/', verifyToken, async (req, res) => {
   try {
+    const schoolId = req.user.schoolId || null;
     const roles = await prisma.rolePermission.findMany({
-      where: { schoolId: req.user.schoolId || null }
+      where: {
+        OR: [
+          { schoolId: schoolId },
+          { schoolId: null }
+        ]
+      }
     });
     res.json({ success: true, roles });
   } catch (error) {

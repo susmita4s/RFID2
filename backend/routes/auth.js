@@ -159,7 +159,7 @@ router.post('/verify-otp', async (req, res) => {
 
       // Generate token for auto-login
       const token = jwt.sign(
-        { id: user.id, email: user.email, role: user.role, firstName: user.firstName, lastName: user.lastName },
+        { id: user.id, email: user.email, role: user.role, firstName: user.firstName, lastName: user.lastName, schoolId: school.id },
         process.env.JWT_SECRET,
         { expiresIn: '7d' }
       );
@@ -306,7 +306,7 @@ router.post('/login', async (req, res) => {
     if (!valid) return res.status(401).json({ success: false, message: 'Invalid email or password.' });
 
     const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role, firstName: user.firstName, lastName: user.lastName },
+      { id: user.id, email: user.email, role: user.role, firstName: user.firstName, lastName: user.lastName, schoolId: user.schoolId },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -406,6 +406,74 @@ router.get('/me', verifyToken, async (req, res) => {
     res.json({ success: true, ...user, permissions });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to fetch user.' });
+  }
+});
+
+// ── PUT /api/auth/profile ─────────────────────────────────────────────────────
+router.put('/profile', verifyToken, async (req, res) => {
+  const { firstName, lastName, email, phone, currentPassword, newPassword } = req.body;
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id }
+    });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+
+    const updateData = {};
+
+    if (firstName !== undefined) updateData.firstName = firstName.trim();
+    if (lastName !== undefined) updateData.lastName = lastName.trim();
+    if (phone !== undefined) updateData.phone = phone.trim();
+
+    if (email && email.toLowerCase().trim() !== user.email) {
+      const normalizedEmail = email.toLowerCase().trim();
+      const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+      if (existing) {
+        return res.status(409).json({ success: false, message: 'Email already in use.' });
+      }
+      updateData.email = normalizedEmail;
+    }
+
+    if (currentPassword && newPassword) {
+      const valid = await bcrypt.compare(currentPassword, user.password);
+      if (!valid) {
+        return res.status(400).json({ success: false, message: 'Incorrect current password.' });
+      }
+      if (newPassword.length < 6) {
+        return res.status(400).json({ success: false, message: 'New password must be at least 6 characters.' });
+      }
+      updateData.password = await bcrypt.hash(newPassword, 10);
+    } else if (newPassword && !currentPassword) {
+      return res.status(400).json({ success: false, message: 'Current password is required to set a new password.' });
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: user.id },
+      data: updateData,
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        phone: true,
+        role: true,
+        createdAt: true,
+        school: true
+      }
+    });
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully.',
+      user: updatedUser
+    });
+
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({ success: false, message: 'Failed to update profile due to server error.' });
   }
 });
 
