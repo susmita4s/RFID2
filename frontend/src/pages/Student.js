@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Papa from 'papaparse';
+import RFIDScanner from '../components/RFIDScanner';
 const Students = () => {
   // --- State Management ---
   const [students, setStudents] = useState([]);
@@ -17,6 +18,12 @@ const Students = () => {
   const [selectedActivity, setSelectedActivity] = useState(null);
   const [confirmToggle, setConfirmToggle] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
+  
+  // RFID Assignment State
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [assignTarget, setAssignTarget] = useState(null);
+  const [scannedUID, setScannedUID] = useState('');
+  const [assigningRFID, setAssigningRFID] = useState(false);
   
   const [newStudent, setNewStudent] = useState({
     fullName: '', gender: '', rfidTag: '', className: '', email: '', phoneNumber: '', guardianName: '', joinedDate: '', profileImage: null
@@ -169,6 +176,36 @@ const Students = () => {
       }
     } catch (error) {
       console.error('Error deleting student:', error);
+    }
+  };
+
+  const handleAssignRFID = async () => {
+    if (!assignTarget || !scannedUID) return;
+    setAssigningRFID(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5000/api/rfid/assign', {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ studentId: assignTarget.id, rfid_uid: scannedUID })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setShowAssignModal(false);
+        setAssignTarget(null);
+        setScannedUID('');
+        fetchStudents();
+      } else {
+        alert(data.error || 'Failed to assign RFID');
+      }
+    } catch (error) {
+      console.error('Error assigning RFID:', error);
+      alert('Network error while assigning RFID');
+    } finally {
+      setAssigningRFID(false);
     }
   };
 
@@ -549,6 +586,46 @@ const Students = () => {
         </div>
       )}
 
+      {/* --- Assign RFID Modal --- */}
+      {showAssignModal && assignTarget && (
+        <div className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" style={{ zIndex: 1100, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}>
+          <div className="bg-white rounded-4 shadow-lg overflow-hidden animate-fade-in text-center p-5" style={{ width: '95%', maxWidth: '450px' }}>
+            <div className="display-4 text-primary mb-3"><i className="bi bi-broadcast"></i></div>
+            <h4 className="fw-bold mb-2">Assign RFID Card</h4>
+            <p className="text-muted small mb-4">Please scan the RFID card for <strong>{assignTarget.fullName}</strong>.</p>
+            
+            <div className="border rounded-3 p-4 bg-light mb-4 position-relative">
+              {!scannedUID ? (
+                <div className="text-muted d-flex flex-column align-items-center">
+                  <div className="spinner-grow text-primary spinner-grow-sm mb-2" role="status"></div>
+                  <small>Waiting for scan...</small>
+                </div>
+              ) : (
+                <div className="text-success fw-bold">
+                  <i className="bi bi-check-circle-fill me-2"></i>
+                  Scanned: {scannedUID}
+                </div>
+              )}
+              {/* Invisible Scanner Component */}
+              <RFIDScanner active={showAssignModal} onScan={setScannedUID} />
+            </div>
+
+            <div className="d-flex gap-2">
+              <button 
+                className="btn btn-primary flex-grow-1 py-2 fw-bold" 
+                onClick={handleAssignRFID} 
+                disabled={!scannedUID || assigningRFID}
+              >
+                {assigningRFID ? 'Assigning...' : 'Assign Card'}
+              </button>
+              <button className="btn btn-outline-dark flex-grow-1 py-2" onClick={() => { setShowAssignModal(false); setScannedUID(''); setAssignTarget(null); }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* --- Header, Search & Main Table --- */}
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
@@ -636,6 +713,14 @@ const Students = () => {
                              style={{ right: '40px', top: '10px', zIndex: 100, minWidth: '190px' }}>
                           <div className="px-3 py-2 dropdown-item cursor-pointer small d-flex align-items-center gap-2" onClick={() => { setSelectedProfile(student); setActiveMenu(null); }}>
                             <i className="bi bi-info-circle text-primary"></i> View Info
+                          </div>
+                          <div className="px-3 py-2 dropdown-item cursor-pointer small d-flex align-items-center gap-2" onClick={() => { 
+                            setAssignTarget(student); 
+                            setScannedUID(''); 
+                            setShowAssignModal(true); 
+                            setActiveMenu(null); 
+                          }}>
+                            <i className="bi bi-broadcast text-info"></i> Assign RFID
                           </div>
                           <div className="px-3 py-2 dropdown-item cursor-pointer small d-flex align-items-center gap-2" onClick={() => { fetchStudentActivities(student); setActiveMenu(null); }}>
                             <i className="bi bi-clock-history text-warning"></i> Recent Activity

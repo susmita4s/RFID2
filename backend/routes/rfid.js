@@ -186,4 +186,36 @@ router.post('/scan-wallet', async (req, res) => {
   }
 });
 
+const rfidService = require('../services/rfidService');
+
+// ── POST /api/rfid/assign ─────────────────────────────────────────────────────
+router.post('/assign', async (req, res) => {
+  const { studentId, rfid_uid } = req.body;
+  if (!studentId || !rfid_uid) {
+    return res.status(400).json({ success: false, error: 'studentId and rfid_uid are required.' });
+  }
+
+  try {
+    const updatedStudent = await rfidService.assignRFID(Number(studentId), rfid_uid);
+    res.json({ success: true, message: 'RFID assigned successfully', student: updatedStudent });
+  } catch (error) {
+    res.status(400).json({ success: false, error: error.message });
+  }
+});
+
+// ── POST /api/rfid/student ────────────────────────────────────────────────────
+router.post('/student', async (req, res) => {
+  const { rfid_uid } = req.body;
+  if (!rfid_uid) {
+    return res.status(400).json({ success: false, error: 'rfid_uid is required.' });
+  }
+
+  try {
+    const student = await rfidService.findStudentByRFID(rfid_uid);
+    res.json({ success: true, student });
+  } catch (error) {
+    res.status(404).json({ success: false, error: error.message });
+  }
+});
+
 module.exports = router;

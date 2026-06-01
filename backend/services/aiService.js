@@ -103,8 +103,28 @@ ${contextData}
 
     return response.text;
   } catch (error) {
+    // Try to parse the HTTP status from the error
+    let httpStatus = error.status || null;
+
+    // @google/genai throws errors where message is a JSON string
+    if (!httpStatus && error.message) {
+      try {
+        const parsed = JSON.parse(error.message);
+        httpStatus = parsed?.error?.code;
+      } catch (_) { /* not JSON */ }
+    }
+
+    if (httpStatus === 429) {
+      console.error("Gemini Quota Exhausted (429):", error.message);
+      const quotaErr = new Error("API quota exhausted");
+      quotaErr.code = 'QUOTA_EXHAUSTED';
+      throw quotaErr;
+    }
+
     console.error("Gemini Error:", error);
-    throw new Error("Failed to communicate with AI service.");
+    const genericErr = new Error("Failed to communicate with AI service.");
+    genericErr.code = 'AI_ERROR';
+    throw genericErr;
   }
 }
 

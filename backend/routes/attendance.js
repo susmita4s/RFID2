@@ -289,4 +289,68 @@ router.delete('/:id', verifyToken, async (req, res) => {
   }
 });
 
+const rfidService = require('../services/rfidService');
+
+// ── POST /api/attendance/rfid-scan ────────────────────────────────────────────
+router.post('/rfid-scan', async (req, res) => {
+  const { rfid_uid } = req.body;
+  if (!rfid_uid) return res.status(400).json({ success: false, error: 'rfid_uid is required.' });
+
+  try {
+    const student = await rfidService.findStudentByRFID(rfid_uid);
+    const { startOfDay, endOfDay } = getLocalDateBounds();
+    const now = new Date();
+
+    let attendance = await prisma.attendance.findFirst({
+      where: { studentId: student.id, date: { gte: startOfDay, lte: endOfDay } }
+    });
+
+    if (attendance && attendance.checkIn) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Attendance Already Marked Today',
+        student: { name: student.fullName, className: student.className, section: student.section, photo: student.profileImage }
+      });
+    }
+
+    const lateThreshold = new Date(now);
+    lateThreshold.setHours(9, 0, 0, 0);
+    const status = now > lateThreshold ? 'late' : 'present';
+
+    if (attendance) {
+      attendance = await prisma.attendance.update({
+        where: { id: attendance.id },
+        data: { checkIn: now, status }
+      });
+    } else {
+      attendance = await prisma.attendance.create({
+        data: {
+          studentId: student.id,
+          date: now,
+          checkIn: now,
+          status,
+          rfidEnabled: true
+        }
+      });
+    }
+
+    await prisma.attendanceActivity.create({
+      data: {
+        attendanceId: attendance.id,
+        action: 'CHECK_IN_RFID',
+        description: `Checked in via RFID at ${now.toLocaleTimeString()}`
+      }
+    });
+
+    res.json({
+      success: true,
+      message: 'Attendance marked successfully',
+      student: { name: student.fullName, className: student.className, section: student.section, photo: student.profileImage },
+      attendance
+    });
+  } catch (error) {
+    res.status(404).json({ success: false, error: error.message });
+  }
+});
+
 module.exports = router;

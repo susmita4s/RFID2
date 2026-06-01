@@ -62,10 +62,15 @@ const ChatWindow = ({ onClose, theme, token }) => {
       const data = await res.json();
       
       if (res.status === 503 && data.error === 'ai_unavailable') {
-        // AI is temporarily busy — remove optimistic user message and show retry notice
+        // Remove optimistic user message
         setMessages(prev => prev.filter(m => m.id !== tempId));
-        setRetryMsg(data.message || 'The AI is busy, please try again in a moment.');
-        setTimeout(() => setRetryMsg(''), 5000);
+
+        if (data.error_code === 'QUOTA_EXHAUSTED') {
+          setRetryMsg('🚫 The AI assistant has reached its daily usage limit. Please try again tomorrow or contact the school administrator.');
+        } else {
+          setRetryMsg(data.message || 'The AI is temporarily unavailable. Please try again in a moment.');
+        }
+        setTimeout(() => setRetryMsg(''), 8000);
         return;
       }
 

@@ -3,6 +3,7 @@
 
 
 import React, { useState, useEffect, useCallback } from 'react';
+import RFIDScanner from '../components/RFIDScanner';
 
 const Attendance = () => {
   // --- State Management ---
@@ -14,6 +15,11 @@ const Attendance = () => {
   const [attendanceData, setAttendanceData] = useState([]);
   const [stats, setStats] = useState({ present: 0, absent: 0, late: 0, activeTags: 0 });
   const [loading, setLoading] = useState(true);
+
+  // RFID Scanner State
+  const [showScannerModal, setShowScannerModal] = useState(false);
+  const [scanResult, setScanResult] = useState(null); // { success: true/false, message: '', student: null }
+  const [isScanning, setIsScanning] = useState(false);
 
   // --- Data Fetching ---
   const fetchAttendanceAndStats = useCallback(async () => {
@@ -109,14 +115,94 @@ const Attendance = () => {
     }
   };
 
+  const handleRFIDScan = async (uid) => {
+    if (isScanning) return;
+    setIsScanning(true);
+    setScanResult(null);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5000/api/attendance/rfid-scan', {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ rfid_uid: uid })
+      });
+      const data = await response.json();
+      
+      setScanResult({
+        success: data.success,
+        message: data.message || data.error,
+        student: data.student || null
+      });
+
+      if (data.success || data.error === 'Attendance Already Marked Today') {
+        fetchAttendanceAndStats();
+      }
+
+      // Clear the result after a few seconds so it's ready for the next person
+      setTimeout(() => {
+        setScanResult(null);
+      }, 4000);
+    } catch (error) {
+      console.error('RFID scan error:', error);
+      setScanResult({ success: false, message: 'Network Error' });
+      setTimeout(() => setScanResult(null), 3000);
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
   return (
     <div className="animate-fade-in p-3" onClick={() => setActiveMenu(null)}>
       
       {/* --- Header Section --- */}
-      <div className="mb-4">
-        <h4 className="fw-bold m-0 text-dark">Attendance Management</h4>
-        <p className="text-muted small">Real-time RFID monitoring and reporting</p>
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <div>
+          <h4 className="fw-bold m-0 text-dark">Attendance Management</h4>
+          <p className="text-muted small">Real-time RFID monitoring and reporting</p>
+        </div>
+        <button className="btn btn-primary px-4 py-2 fw-bold shadow-sm rounded-3 d-flex align-items-center gap-2" onClick={() => setShowScannerModal(true)}>
+          <i className="bi bi-broadcast"></i> Start Scanner Mode
+        </button>
       </div>
+
+      {/* --- RFID Scanner Modal --- */}
+      {showScannerModal && (
+        <div className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" style={{ zIndex: 1100, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)' }}>
+          <div className="bg-white rounded-4 shadow-lg overflow-hidden animate-fade-in position-relative" style={{ width: '90%', maxWidth: '600px' }}>
+            <button className="btn-close position-absolute top-0 end-0 m-3" onClick={() => { setShowScannerModal(false); setScanResult(null); }}></button>
+            <div className="text-center p-5">
+              {!scanResult ? (
+                <>
+                  <div className="display-1 text-primary mb-4">
+                    {isScanning ? <div className="spinner-border text-primary" style={{width: '3rem', height: '3rem'}} role="status"></div> : <i className="bi bi-broadcast"></i>}
+                  </div>
+                  <h3 className="fw-bold mb-3">{isScanning ? 'Processing...' : 'Waiting for RFID Scan...'}</h3>
+                  <p className="text-muted">Please tap student card on the reader</p>
+                </>
+              ) : (
+                <div className={`p-4 rounded-4 ${scanResult.success ? 'bg-success-subtle border border-success' : 'bg-warning-subtle border border-warning'}`}>
+                  {scanResult.student && (
+                    <div className="mb-4">
+                      <img src={scanResult.student.photo || `https://ui-avatars.com/api/?name=${scanResult.student.name}&background=random`} className="rounded-circle border shadow-sm mb-3" style={{width: '100px', height: '100px', objectFit: 'cover'}} alt="" />
+                      <h4 className="fw-bold m-0">{scanResult.student.name}</h4>
+                      <p className="text-muted mb-0">{scanResult.student.className} • {scanResult.student.section || 'Sec A'}</p>
+                    </div>
+                  )}
+                  <h5 className={`fw-bold m-0 ${scanResult.success ? 'text-success' : 'text-danger'}`}>
+                    <i className={`bi ${scanResult.success ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill'} me-2`}></i>
+                    {scanResult.message}
+                  </h5>
+                </div>
+              )}
+            </div>
+            {/* Invisible Scanner Component */}
+            <RFIDScanner active={showScannerModal && !isScanning} onScan={handleRFIDScan} />
+          </div>
+        </div>
+      )}
 
       {/* --- Summary Cards --- */}
       <div className="row g-4 mb-4">

@@ -42,18 +42,26 @@ router.post('/message', verifyToken, async (req, res) => {
     // 4. Get AI Response from Gemini
     const parentUser = await prisma.user.findUnique({ where: { id: parentId } });
     let aiResponseText;
-    let aiError = false;
 
     try {
       aiResponseText = await generateResponse(parentUser, student, message, history);
     } catch (err) {
       console.error('Gemini generateResponse error:', err.message);
-      aiError = true;
       // Delete the user message we just saved so history stays clean
       await prisma.aIChatMessage.delete({ where: { id: userMsg.id } });
+
+      if (err.code === 'QUOTA_EXHAUSTED') {
+        return res.status(503).json({
+          error: 'ai_unavailable',
+          error_code: 'QUOTA_EXHAUSTED',
+          message: 'The AI assistant has reached its daily usage limit. Please contact the school administrator or try again tomorrow.'
+        });
+      }
+
       return res.status(503).json({
         error: 'ai_unavailable',
-        message: 'The AI service is temporarily busy. Please wait a moment and try again.'
+        error_code: 'AI_ERROR',
+        message: 'The AI service is temporarily unavailable. Please try again in a moment.'
       });
     }
 

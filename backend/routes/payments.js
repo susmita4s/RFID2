@@ -93,4 +93,48 @@ router.delete('/:id', verifyToken, async (req, res) => {
   }
 });
 
+const rfidService = require('../services/rfidService');
+
+// ── POST /api/payment/rfid-scan ───────────────────────────────────────────────
+router.post('/rfid-scan', async (req, res) => {
+  const { rfid_uid } = req.body;
+  if (!rfid_uid) return res.status(400).json({ success: false, error: 'rfid_uid is required.' });
+
+  try {
+    const student = await rfidService.findStudentByRFID(rfid_uid);
+    
+    // Fetch payments and fee transactions
+    const payments = await prisma.payment.findMany({
+      where: { studentId: student.id },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const feeTransactions = await prisma.feeTransaction.findMany({
+      where: { studentId: student.id },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    // Calculate totals
+    const outstandingFees = payments.filter(p => p.status === 'pending' || p.status === 'overdue').reduce((acc, curr) => acc + curr.amount, 0);
+    const pendingBalance = outstandingFees; // Simplified for now
+
+    res.json({
+      success: true,
+      student: { 
+        id: student.id,
+        name: student.fullName, 
+        className: student.className,
+        photo: student.profileImage
+      },
+      profile: {
+        outstandingFees,
+        pendingBalance,
+        paymentHistory: [...payments, ...feeTransactions].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 10)
+      }
+    });
+  } catch (error) {
+    res.status(404).json({ success: false, error: error.message });
+  }
+});
+
 module.exports = router;

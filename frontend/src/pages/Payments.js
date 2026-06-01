@@ -1,6 +1,7 @@
 
 
 import React, { useState, useMemo, useEffect } from 'react';
+import RFIDScanner from '../components/RFIDScanner';
 
 const Payments = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -14,6 +15,12 @@ const Payments = () => {
     rfidRefills: 0,
     totalTransactions: 0
   });
+
+  // Profile Scanner State
+  const [showProfileScanner, setShowProfileScanner] = useState(false);
+  const [studentProfile, setStudentProfile] = useState(null);
+  const [isScanningProfile, setIsScanningProfile] = useState(false);
+
 
   const fetchData = async () => {
     try {
@@ -59,6 +66,33 @@ const Payments = () => {
     setSelectedTxn(txn);
   };
 
+  const handleScanProfile = async (uid) => {
+    if (isScanningProfile) return;
+    setIsScanningProfile(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5000/api/payments/rfid-scan', {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ rfid_uid: uid })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setStudentProfile(data);
+      } else {
+        alert(data.error || 'Student not found');
+      }
+    } catch (error) {
+      console.error('Scan Profile error:', error);
+      alert('Network Error');
+    } finally {
+      setIsScanningProfile(false);
+    }
+  };
+
   return (
     <div className="animate-fade-in">
       {/* CSS for Printing - Hides UI elements during print */}
@@ -80,7 +114,81 @@ const Payments = () => {
             <h2 className="fw-bold m-0">Payment Records</h2>
             <p className="text-muted small">Manage student fees and RFID wallet transactions</p>
           </div>
+          <button className="btn btn-primary px-4 py-2 fw-bold shadow-sm rounded-3 d-flex align-items-center gap-2 d-print-none" onClick={() => setShowProfileScanner(true)}>
+            <i className="bi bi-wallet2"></i> Open Student Payment Profile
+          </button>
         </div>
+
+        {/* --- Student Profile Scanner Modal --- */}
+        {showProfileScanner && (
+          <div className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" style={{ zIndex: 2000, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)' }}>
+            <div className="bg-white p-4 rounded-4 shadow-lg border position-relative" style={{ maxWidth: '600px', width: '90%', maxHeight: '90vh', overflowY: 'auto' }}>
+              <button className="btn-close position-absolute top-0 end-0 m-3" onClick={() => { setShowProfileScanner(false); setStudentProfile(null); }}></button>
+              
+              {!studentProfile ? (
+                <div className="text-center p-5">
+                  <div className="display-1 text-primary mb-4">
+                    {isScanningProfile ? <div className="spinner-border text-primary" style={{width: '3rem', height: '3rem'}} role="status"></div> : <i className="bi bi-broadcast"></i>}
+                  </div>
+                  <h4 className="fw-bold mb-3">{isScanningProfile ? 'Fetching Profile...' : 'Scan Student RFID'}</h4>
+                  <p className="text-muted">Place card on reader to view payment profile</p>
+                  <RFIDScanner active={showProfileScanner && !isScanningProfile} onScan={handleScanProfile} />
+                </div>
+              ) : (
+                <div>
+                  <div className="d-flex align-items-center gap-3 mb-4 p-3 bg-light rounded-3 border">
+                    <img src={studentProfile.student.photo || `https://ui-avatars.com/api/?name=${studentProfile.student.name}&background=random`} className="rounded-circle border" style={{width: 60, height: 60, objectFit: 'cover'}} alt="" />
+                    <div>
+                      <h5 className="fw-bold m-0">{studentProfile.student.name}</h5>
+                      <div className="text-muted small">{studentProfile.student.className}</div>
+                    </div>
+                  </div>
+                  
+                  <div className="row g-3 mb-4">
+                    <div className="col-6">
+                      <div className="p-3 border rounded-3 bg-danger-subtle text-danger text-center">
+                        <h3 className="fw-bold m-0">₹{studentProfile.profile.outstandingFees}</h3>
+                        <div className="small fw-bold text-uppercase" style={{fontSize: '10px'}}>Outstanding Fees</div>
+                      </div>
+                    </div>
+                    <div className="col-6">
+                      <div className="p-3 border rounded-3 bg-warning-subtle text-warning text-center">
+                        <h3 className="fw-bold m-0">₹{studentProfile.profile.pendingBalance}</h3>
+                        <div className="small fw-bold text-uppercase" style={{fontSize: '10px'}}>Pending Balance</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <h6 className="fw-bold mb-3 border-bottom pb-2">Recent Payment History</h6>
+                  {studentProfile.profile.paymentHistory.length === 0 ? (
+                    <p className="text-muted small text-center py-3">No payment records found.</p>
+                  ) : (
+                    <div className="list-group list-group-flush border mb-4 rounded-3" style={{maxHeight: '200px', overflowY: 'auto'}}>
+                      {studentProfile.profile.paymentHistory.map((txn, idx) => (
+                        <div key={idx} className="list-group-item d-flex justify-content-between align-items-center p-3">
+                          <div>
+                            <div className="fw-bold small text-dark">{txn.type || txn.description || 'Transaction'}</div>
+                            <div className="text-muted" style={{fontSize: '11px'}}>{new Date(txn.createdAt).toLocaleDateString()}</div>
+                          </div>
+                          <div className="text-end">
+                            <div className="fw-bold small">₹{txn.amount}</div>
+                            <span className={`badge rounded-pill ${txn.status === 'paid' ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning'}`} style={{fontSize: '10px'}}>
+                              {txn.status}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  <div className="d-grid">
+                    <button className="btn btn-outline-dark fw-bold rounded-pill" onClick={() => setStudentProfile(null)}>Scan Another</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Summary Cards */}
         <div className="row g-4 mb-4 d-print-none">

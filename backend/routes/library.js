@@ -246,5 +246,61 @@ router.put('/issue/:id/return', verifyToken, async (req, res) => {
   }
 });
 
-module.exports = router;
+const rfidService = require('../services/rfidService');
 
+// ── POST /api/library/rfid-scan ───────────────────────────────────────────────
+router.post('/rfid-scan', async (req, res) => {
+  const { rfid_uid } = req.body;
+  if (!rfid_uid) return res.status(400).json({ success: false, error: 'rfid_uid is required.' });
+
+  try {
+    const student = await rfidService.findStudentByRFID(rfid_uid);
+    
+    // Fetch active issues, due books, and calculate fine
+    const activeIssues = await prisma.libraryIssue.findMany({
+      where: { studentId: student.id, status: { in: ['issued', 'overdue'] } },
+      include: { book: { select: { title: true, bookCode: true } } }
+    });
+
+    let totalFine = 0;
+    const now = new Date();
+    
+    const formattedIssues = activeIssues.map(issue => {
+      let fine = 0;
+      if (now > new Date(issue.dueDate)) {
+        const daysLate = Math.ceil((now - new Date(issue.dueDate)) / (1000 * 60 * 60 * 24));
+        fine = daysLate * 2; // Rs 2 per day
+        totalFine += fine;
+      }
+      return {
+        id: issue.id,
+        bookTitle: issue.book.title,
+        bookCode: issue.book.bookCode,
+        issueDate: issue.issueDate,
+        dueDate: issue.dueDate,
+        status: issue.status,
+        fine
+      };
+    });
+
+    res.json({
+      success: true,
+      student: { 
+        id: student.id,
+        name: student.fullName, 
+        className: student.className,
+        photo: student.profileImage
+      },
+      profile: {
+        activeLoans: formattedIssues.length,
+        dueBooks: formattedIssues.filter(i => new Date() > new Date(i.dueDate)).length,
+        libraryFine: totalFine,
+        issues: formattedIssues
+      }
+    });
+  } catch (error) {
+    res.status(404).json({ success: false, error: error.message });
+  }
+});
+
+module.exports = router;

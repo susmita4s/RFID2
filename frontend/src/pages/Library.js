@@ -2,6 +2,7 @@
 
 
 import React, { useState, useMemo, useEffect } from 'react';
+import RFIDScanner from '../components/RFIDScanner';
 
 const Library = () => {
   // ... (Keep all your existing state and handler logic exactly the same)
@@ -21,6 +22,12 @@ const Library = () => {
     overdueItems: 0,
     processedToday: 0
   });
+
+  // Profile Scanner State
+  const [showProfileScanner, setShowProfileScanner] = useState(false);
+  const [studentProfile, setStudentProfile] = useState(null);
+  const [isScanningProfile, setIsScanningProfile] = useState(false);
+
 
   const fetchData = async () => {
     try {
@@ -100,6 +107,33 @@ const Library = () => {
     }
   };
 
+  const handleScanProfile = async (uid) => {
+    if (isScanningProfile) return;
+    setIsScanningProfile(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5000/api/library/rfid-scan', {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ rfid_uid: uid })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setStudentProfile(data);
+      } else {
+        alert(data.error || 'Student not found');
+      }
+    } catch (error) {
+      console.error('Scan Profile error:', error);
+      alert('Network Error');
+    } finally {
+      setIsScanningProfile(false);
+    }
+  };
+
   const filteredBooks = useMemo(() => {
     return booksData.filter(book => {
       const matchesSearch = book.title.toLowerCase().includes(searchTerm.toLowerCase()) || book.stuId.includes(searchTerm);
@@ -126,10 +160,91 @@ const Library = () => {
         </div>
       )}
 
-      <div className="mb-4">
-        <h2 className="fw-bold text-dark mb-1">Library Management</h2>
-        <p className="text-muted small">Circulation, Inventory, and Digital Records</p>
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <div>
+          <h2 className="fw-bold text-dark mb-1">Library Management</h2>
+          <p className="text-muted small">Circulation, Inventory, and Digital Records</p>
+        </div>
+        <button className="btn btn-primary px-4 py-2 fw-bold shadow-sm rounded-3 d-flex align-items-center gap-2" onClick={() => setShowProfileScanner(true)}>
+          <i className="bi bi-person-badge"></i> Open Student Profile
+        </button>
       </div>
+
+      {/* --- Student Profile Scanner Modal --- */}
+      {showProfileScanner && (
+        <div className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" style={{ zIndex: 2000, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)' }}>
+          <div className="bg-white p-4 rounded-4 shadow-lg border position-relative" style={{ maxWidth: '600px', width: '90%', maxHeight: '90vh', overflowY: 'auto' }}>
+            <button className="btn-close position-absolute top-0 end-0 m-3" onClick={() => { setShowProfileScanner(false); setStudentProfile(null); }}></button>
+            
+            {!studentProfile ? (
+              <div className="text-center p-5">
+                <div className="display-1 text-primary mb-4">
+                  {isScanningProfile ? <div className="spinner-border text-primary" style={{width: '3rem', height: '3rem'}} role="status"></div> : <i className="bi bi-broadcast"></i>}
+                </div>
+                <h4 className="fw-bold mb-3">{isScanningProfile ? 'Fetching Profile...' : 'Scan Student RFID'}</h4>
+                <p className="text-muted">Place card on reader to view library profile</p>
+                <RFIDScanner active={showProfileScanner && !isScanningProfile} onScan={handleScanProfile} />
+              </div>
+            ) : (
+              <div>
+                <div className="d-flex align-items-center gap-3 mb-4 p-3 bg-light rounded-3 border">
+                  <img src={studentProfile.student.photo || `https://ui-avatars.com/api/?name=${studentProfile.student.name}&background=random`} className="rounded-circle border" style={{width: 60, height: 60, objectFit: 'cover'}} alt="" />
+                  <div>
+                    <h5 className="fw-bold m-0">{studentProfile.student.name}</h5>
+                    <div className="text-muted small">{studentProfile.student.className}</div>
+                  </div>
+                </div>
+                
+                <div className="row g-3 mb-4">
+                  <div className="col-4">
+                    <div className="p-3 border rounded-3 bg-primary-subtle text-primary text-center">
+                      <h3 className="fw-bold m-0">{studentProfile.profile.activeLoans}</h3>
+                      <div className="small fw-bold text-uppercase" style={{fontSize: '10px'}}>Active Loans</div>
+                    </div>
+                  </div>
+                  <div className="col-4">
+                    <div className="p-3 border rounded-3 bg-warning-subtle text-warning text-center">
+                      <h3 className="fw-bold m-0">{studentProfile.profile.dueBooks}</h3>
+                      <div className="small fw-bold text-uppercase" style={{fontSize: '10px'}}>Due Books</div>
+                    </div>
+                  </div>
+                  <div className="col-4">
+                    <div className="p-3 border rounded-3 bg-danger-subtle text-danger text-center">
+                      <h3 className="fw-bold m-0">₹{studentProfile.profile.libraryFine}</h3>
+                      <div className="small fw-bold text-uppercase" style={{fontSize: '10px'}}>Library Fine</div>
+                    </div>
+                  </div>
+                </div>
+
+                <h6 className="fw-bold mb-3 border-bottom pb-2">Active Issues</h6>
+                {studentProfile.profile.issues.length === 0 ? (
+                  <p className="text-muted small text-center py-3">No active books issued.</p>
+                ) : (
+                  <div className="list-group list-group-flush border mb-4 rounded-3" style={{maxHeight: '200px', overflowY: 'auto'}}>
+                    {studentProfile.profile.issues.map((issue, idx) => (
+                      <div key={idx} className="list-group-item d-flex justify-content-between align-items-center p-3">
+                        <div>
+                          <div className="fw-bold small text-dark">{issue.bookTitle}</div>
+                          <div className="text-muted" style={{fontSize: '11px'}}>{issue.bookCode} | Due: {new Date(issue.dueDate).toLocaleDateString()}</div>
+                        </div>
+                        {issue.fine > 0 ? (
+                          <span className="badge bg-danger-subtle text-danger border border-danger border-opacity-25 rounded-pill">Fine: ₹{issue.fine}</span>
+                        ) : (
+                          <span className="badge bg-success-subtle text-success border border-success border-opacity-25 rounded-pill">Good Standing</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                <div className="d-grid">
+                  <button className="btn btn-outline-dark fw-bold rounded-pill" onClick={() => setStudentProfile(null)}>Scan Another</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="row g-3 mb-4">
         <MetricCard title="Total Inventory" value={stats.totalInventory.toLocaleString()} icon="book" color="#ff4d6d" bg="#fff1f2" />

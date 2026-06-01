@@ -64,6 +64,7 @@ model Student {
   email           String?  @unique @map("parentEmail")
   phoneNumber     String?  @map("parentPhone")
   rfidTag         String?  @unique
+  rfid_uid        String?  @unique @db.VarChar(50)
   profileImage    String?  @map("photoUrl")
   isActive        Boolean  @default(true)
   status          String   @default("active")
