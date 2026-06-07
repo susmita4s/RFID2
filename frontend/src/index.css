@@ -118,3 +118,16 @@ code {
 [data-theme='light'] .modal-content, [data-theme='dark'] .modal-content { background-color: var(--card-bg) !important; border-color: var(--border-color) !important; color: var(--text-main); }
 [data-theme='light'] th, [data-theme='dark'] th, [data-theme='light'] td, [data-theme='dark'] td { background-color: var(--card-bg) !important; border-color: var(--border-color) !important; color: var(--text-main) !important; }
 [data-theme='light'] table, [data-theme='dark'] table { color: var(--text-main) !important; }
+
+/* Custom outline buttons color in dark mode override */
+[data-theme='dark'] .btn-outline-dark {
+  color: #10b981 !important;
+  border-color: #10b981 !important;
+}
+
+[data-theme='dark'] .btn-outline-dark:hover {
+  color: #ffffff !important;
+  background-color: #10b981 !important;
+  border-color: #10b981 !important;
+}
+

@@ -9,7 +9,9 @@ import {
   ShieldCheck,
   Wifi,
   BusFront,
-  BookHalf
+  BookHalf,
+  Sun,
+  Moon
 } from 'react-bootstrap-icons';
 
 /* ── RFID-related slide images ── */
@@ -64,6 +66,45 @@ const LandingPage = ({ onStart, theme, toggleTheme }) => {
           position: relative;
           overflow: hidden;
           color: #fff;
+        }
+
+        /* ── THEME TOGGLE BUTTON ── */
+        .lp-theme-toggle {
+          position: absolute;
+          top: 24px;
+          right: 24px;
+          z-index: 100;
+          background: ${theme === 'dark' ? 'rgba(8, 30, 27, 0.70)' : 'rgba(255, 255, 255, 0.85)'};
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+          border: 1px solid ${theme === 'dark' ? 'rgba(32,178,170,0.28)' : 'rgba(32,178,170,0.5)'};
+          border-radius: 50%;
+          width: 48px;
+          height: 48px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          color: ${theme === 'dark' ? '#20b2aa' : '#111827'};
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+          transition: all 0.3s ease;
+          outline: none;
+        }
+        .lp-theme-toggle:hover {
+          transform: scale(1.08);
+          box-shadow: 0 8px 32px rgba(32, 178, 170, 0.4);
+          background: ${theme === 'dark' ? 'rgba(12, 45, 40, 0.80)' : 'rgba(255, 255, 255, 0.95)'};
+        }
+        .lp-theme-toggle:focus-visible {
+          outline: 2px solid #20b2aa;
+        }
+        @media (max-width: 580px) {
+          .lp-theme-toggle {
+            top: 16px;
+            right: 16px;
+            width: 40px;
+            height: 40px;
+          }
         }
 
         /* ── BLURRED CAMPUS BACKGROUND ── */
@@ -168,23 +209,7 @@ const LandingPage = ({ onStart, theme, toggleTheme }) => {
           margin-bottom: 20px;
         }
 
-        .lp-title {
-          font-size: 3.8rem;
-          font-weight: 900;
-          line-height: 1.06;
-          letter-spacing: -2px;
-          text-transform: uppercase;
-          color: #fff;
-          margin: 0 0 16px 0;
-        }
         .lp-title .lp-accent { color: #20b2aa; }
-
-        .lp-sub {
-          font-size: 1.2rem;
-          color: rgba(255,255,255,0.60);
-          font-weight: 400;
-          margin: 0;
-        }
 
         /* ── RIGHT: SLIDER CARD ── */
         .lp-slider-wrap {
@@ -249,7 +274,6 @@ const LandingPage = ({ onStart, theme, toggleTheme }) => {
           align-items: center;
           padding: 12px 16px 6px 16px;
         }
-        .lp-slide-footer span  { font-size: 0.78rem; color: rgba(255,255,255,0.65); }
         .lp-slide-footer strong { font-size: 0.8rem; color: #20b2aa; }
 
         /* Dot indicators */
@@ -308,8 +332,8 @@ const LandingPage = ({ onStart, theme, toggleTheme }) => {
         }
 
         .lp-feat {
-          background: rgba(255,255,255,0.045);
-          border: 1px solid rgba(32,178,170,0.14);
+          background: ${theme === 'dark' ? 'rgba(255,255,255,0.045)' : 'rgba(0,0,0,0.03)'};
+          border: 1px solid ${theme === 'dark' ? 'rgba(32,178,170,0.14)' : 'rgba(32,178,170,0.22)'};
           border-radius: 20px;
           padding: 22px 16px 18px;
           text-align: center;
@@ -333,12 +357,12 @@ const LandingPage = ({ onStart, theme, toggleTheme }) => {
           font-weight: 800;
           text-transform: uppercase;
           letter-spacing: 0.5px;
-          color: #fff;
+          color: ${theme === 'dark' ? '#fff' : '#111827'};
           margin-bottom: 4px;
         }
         .lp-feat-desc {
           font-size: 0.72rem;
-          color: rgba(255,255,255,0.48);
+          color: ${theme === 'dark' ? 'rgba(255,255,255,0.48)' : 'rgba(17,24,39,0.6)'};
         }
 
         /* ── FOOTER ── */
@@ -349,7 +373,7 @@ const LandingPage = ({ onStart, theme, toggleTheme }) => {
           transform: translateX(-50%);
           font-size: 0.72rem;
           letter-spacing: 1.2px;
-          color: rgba(255,255,255,0.28);
+          color: ${theme === 'dark' ? 'rgba(255,255,255,0.28)' : 'rgba(17,24,39,0.5)'};
           z-index: 10;
           white-space: nowrap;
         }
@@ -367,6 +391,16 @@ const LandingPage = ({ onStart, theme, toggleTheme }) => {
           .lp-card     { padding: 28px 16px; }
         }
       `}</style>
+
+      {/* ── Theme Toggle ── */}
+      <button 
+        className="lp-theme-toggle" 
+        onClick={toggleTheme} 
+        aria-label="Toggle theme"
+        title={theme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode"}
+      >
+        {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+      </button>
 
       {/* ── Background ── */}
       <div className="lp-bg" />
