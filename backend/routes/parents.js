@@ -265,7 +265,8 @@ router.post('/login', async (req, res) => {
 
   try {
     const user = await prisma.user.findUnique({ where: { email } });
-    if (!user || user.role !== 'parent') return res.status(401).json({ error: 'Invalid email or password.' });
+    if (!user) return res.status(401).json({ error: 'Invalid email or password.' });
+    if (user.role !== 'parent') return res.status(403).json({ error: 'Access Denied. Please use the correct login portal for your role.' });
     if (!user.isVerified) return res.status(403).json({ error: 'Please verify your email via the activation link before login.' });
 
     const valid = await bcrypt.compare(password, user.password);

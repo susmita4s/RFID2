@@ -1,5 +1,6 @@
 const express = require('express');
 const { verifyToken } = require('./auth');
+const { checkPermission } = require('../middleware/rbac');
 
 const router = express.Router();
 const prisma = require('../prismaClient');
@@ -14,7 +15,7 @@ const getLocalDateBounds = (dateString) => {
 };
 
 // ── GET /api/attendance ───────────────────────────────────────────────────────
-router.get('/', verifyToken, async (req, res) => {
+router.get('/', verifyToken, checkPermission('canAccessAttendance'), async (req, res) => {
   try {
     const { date, search, class: cls } = req.query;
     const { startOfDay, endOfDay } = getLocalDateBounds(date);
@@ -64,7 +65,7 @@ router.get('/', verifyToken, async (req, res) => {
 });
 
 // ── GET /api/attendance/stats ─────────────────────────────────────────────────
-router.get('/stats', verifyToken, async (req, res) => {
+router.get('/stats', verifyToken, checkPermission('canAccessAttendance'), async (req, res) => {
   try {
     const { date } = req.query;
     const { startOfDay, endOfDay } = getLocalDateBounds(date);
@@ -97,7 +98,7 @@ router.get('/stats', verifyToken, async (req, res) => {
 });
 
 // ── POST /api/attendance/check-in ─────────────────────────────────────────────
-router.post('/check-in', verifyToken, async (req, res) => {
+router.post('/check-in', verifyToken, checkPermission('canAccessAttendance'), async (req, res) => {
   const { studentDbId, date, time } = req.body;
   if (!studentDbId) return res.status(400).json({ success: false, error: 'Student ID required.' });
 
@@ -148,7 +149,7 @@ router.post('/check-in', verifyToken, async (req, res) => {
 });
 
 // ── POST /api/attendance/check-out ────────────────────────────────────────────
-router.post('/check-out', verifyToken, async (req, res) => {
+router.post('/check-out', verifyToken, checkPermission('canAccessAttendance'), async (req, res) => {
   const { studentDbId, date, time } = req.body;
   if (!studentDbId) return res.status(400).json({ success: false, error: 'Student ID required.' });
 
@@ -190,7 +191,7 @@ router.post('/check-out', verifyToken, async (req, res) => {
 });
 
 // ── POST /api/attendance/mark-absent ──────────────────────────────────────────
-router.post('/mark-absent', verifyToken, async (req, res) => {
+router.post('/mark-absent', verifyToken, checkPermission('canAccessAttendance'), async (req, res) => {
   const { studentDbId, date } = req.body;
   if (!studentDbId) return res.status(400).json({ success: false, error: 'Student ID required.' });
 
@@ -234,7 +235,7 @@ router.post('/mark-absent', verifyToken, async (req, res) => {
 });
 
 // ── PATCH /api/attendance/rfid-toggle/:studentDbId ────────────────────────────
-router.patch('/rfid-toggle/:studentDbId', verifyToken, async (req, res) => {
+router.patch('/rfid-toggle/:studentDbId', verifyToken, checkPermission('canAccessAttendance'), async (req, res) => {
   const { date, enabled } = req.body;
   const studentDbId = Number(req.params.studentDbId);
   const targetDate = date ? new Date(date) : new Date();
@@ -278,7 +279,7 @@ router.patch('/rfid-toggle/:studentDbId', verifyToken, async (req, res) => {
 });
 
 // ── DELETE /api/attendance/:id ────────────────────────────────────────────────
-router.delete('/:id', verifyToken, async (req, res) => {
+router.delete('/:id', verifyToken, checkPermission('canAccessAttendance'), async (req, res) => {
   try {
     const id = Number(req.params.id);
     await prisma.attendance.delete({ where: { id } });

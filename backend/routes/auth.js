@@ -151,6 +151,7 @@ router.post('/verify-otp', async (req, res) => {
         where: { email },
         data: { 
           isVerified: true, 
+          isEmailVerified: true,
           registrationOtp: null, 
           otpExpiry: null,
           schoolId: school.id 
@@ -172,10 +173,10 @@ router.post('/verify-otp', async (req, res) => {
       });
     }
 
-    // Mark as verified for parents
+    // Mark as verified for parents/staff
     await prisma.user.update({
       where: { email },
-      data: { isVerified: true, registrationOtp: null, otpExpiry: null },
+      data: { isVerified: true, isEmailVerified: true, registrationOtp: null, otpExpiry: null },
     });
 
     res.json({ success: true, message: 'Account verified successfully. You can now login.' });
@@ -277,7 +278,7 @@ router.post('/reset-password', async (req, res) => {
 
 // ── POST /api/auth/login ──────────────────────────────────────────────────────
 router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, loginType } = req.body;
 
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password are required.' });
@@ -287,9 +288,17 @@ router.post('/login', async (req, res) => {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) return res.status(401).json({ error: 'Invalid email or password.' });
 
+    if (loginType === 'administrator' && user.role !== 'admin') {
+      return res.status(403).json({ error: 'Access Denied. Please use the correct login portal for your role.' });
+    }
+    
+    if (loginType === 'staff' && user.role !== 'staff') {
+      return res.status(403).json({ error: 'Access Denied. Please use the correct login portal for your role.' });
+    }
+
     // Explicitly prevent Parents from logging in via the Admin/Staff endpoint
     if (user.role === 'parent') {
-      return res.status(403).json({ error: 'Access denied. Parents must log in through the Parent tab.' });
+      return res.status(403).json({ error: 'Access Denied. Please use the correct login portal for your role.' });
     }
 
 
@@ -317,11 +326,16 @@ router.post('/login', async (req, res) => {
       token,
     };
 
+    const userWithSchool = await prisma.user.findUnique({
+      where: { id: user.id },
+      include: { school: true }
+    });
+
+    // Use single source of truth for School Name
+    const globalSchool = await prisma.school.findFirst();
+    const schoolName = userWithSchool?.school?.name || globalSchool?.name || null;
+
     if (user.role === 'admin') {
-      const userWithSchool = await prisma.user.findUnique({
-        where: { id: user.id },
-        include: { school: true }
-      });
       payload.admin = { 
         id: user.id, 
         firstName: user.firstName, 
@@ -329,10 +343,17 @@ router.post('/login', async (req, res) => {
         email: user.email, 
         phone: user.phone,
         role: user.role,
-        schoolName: userWithSchool?.school?.name 
+        schoolName: schoolName 
       };
     } else {
-      payload.user = { id: user.id, firstName: user.firstName, lastName: user.lastName, email: user.email, role: user.role };
+      payload.user = { 
+        id: user.id, 
+        firstName: user.firstName, 
+        lastName: user.lastName, 
+        email: user.email, 
+        role: user.role,
+        schoolName: schoolName 
+      };
     }
 
     res.json(payload);
@@ -371,6 +392,10 @@ router.get('/me', verifyToken, async (req, res) => {
     });
     if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
 
+    // Use single source of truth for School Name
+    const globalSchool = await prisma.school.findFirst();
+    const schoolName = user.school?.name || globalSchool?.name || null;
+
     if (user.role === 'admin') {
       return res.json({
         success: true,
@@ -380,7 +405,7 @@ router.get('/me', verifyToken, async (req, res) => {
         email: user.email,
         phone: user.phone,
         role: user.role,
-        schoolName: user.school?.name
+        schoolName: schoolName
       });
     }
 
@@ -398,12 +423,15 @@ router.get('/me', verifyToken, async (req, res) => {
           canAccessPayments: false,
           canAccessStudents: isTeacher,
           canAccessAttendance: isTeacher,
-          canAccessBus: false
+          canAccessBus: false,
+          canAccessRfid: false,
+          canAccessReports: false,
+          canAccessStaffManagement: false
         };
       }
     }
 
-    res.json({ success: true, ...user, permissions });
+    res.json({ success: true, ...user, permissions, schoolName: schoolName });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Failed to fetch user.' });
   }
@@ -411,7 +439,7 @@ router.get('/me', verifyToken, async (req, res) => {
 
 // ── PUT /api/auth/profile ─────────────────────────────────────────────────────
 router.put('/profile', verifyToken, async (req, res) => {
-  const { firstName, lastName, email, phone, currentPassword, newPassword } = req.body;
+  const { firstName, lastName, email, phone, currentPassword, newPassword, schoolName } = req.body;
 
   try {
     const user = await prisma.user.findUnique({
@@ -448,6 +476,30 @@ router.put('/profile', verifyToken, async (req, res) => {
       updateData.password = await bcrypt.hash(newPassword, 10);
     } else if (newPassword && !currentPassword) {
       return res.status(400).json({ success: false, message: 'Current password is required to set a new password.' });
+    }
+
+    if (schoolName !== undefined && user.role === 'admin') {
+      const trimmedSchoolName = schoolName.trim() || 'School Name Not Configured';
+      if (user.schoolId) {
+        await prisma.school.update({
+          where: { id: user.schoolId },
+          data: { name: trimmedSchoolName }
+        });
+      } else {
+        const existingSchool = await prisma.school.findFirst();
+        if (existingSchool) {
+          await prisma.school.update({
+            where: { id: existingSchool.id },
+            data: { name: trimmedSchoolName }
+          });
+          updateData.schoolId = existingSchool.id;
+        } else {
+          const newSchool = await prisma.school.create({
+            data: { name: trimmedSchoolName }
+          });
+          updateData.schoolId = newSchool.id;
+        }
+      }
     }
 
     const updatedUser = await prisma.user.update({

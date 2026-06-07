@@ -1,10 +1,11 @@
 const express = require('express');
 const { verifyToken } = require('./auth');
+const { checkPermission } = require('../middleware/rbac');
 
 const router = express.Router();
 const prisma = require('../prismaClient');
 // ── GET /api/payments ─────────────────────────────────────────────────────────
-router.get('/', verifyToken, async (req, res) => {
+router.get('/', verifyToken, checkPermission('canAccessPayments'), async (req, res) => {
   try {
     const { studentId, status, type } = req.query;
 
@@ -25,7 +26,7 @@ router.get('/', verifyToken, async (req, res) => {
 });
 
 // ── POST /api/payments ────────────────────────────────────────────────────────
-router.post('/', verifyToken, async (req, res) => {
+router.post('/', verifyToken, checkPermission('canAccessPayments'), async (req, res) => {
   const { studentId, amount, type, description, dueDate } = req.body;
 
   if (!studentId || !amount || !type) {
@@ -50,7 +51,7 @@ router.post('/', verifyToken, async (req, res) => {
 });
 
 // ── PUT /api/payments/:id/pay ─────────────────────────────────────────────────
-router.put('/:id/pay', verifyToken, async (req, res) => {
+router.put('/:id/pay', verifyToken, checkPermission('canAccessPayments'), async (req, res) => {
   try {
     const payment = await prisma.payment.update({
       where: { id: Number(req.params.id) },
@@ -64,7 +65,7 @@ router.put('/:id/pay', verifyToken, async (req, res) => {
 });
 
 // ── GET /api/payments/summary ─────────────────────────────────────────────────
-router.get('/summary', verifyToken, async (req, res) => {
+router.get('/summary', verifyToken, checkPermission('canAccessPayments'), async (req, res) => {
   try {
     const [paid, pending, overdue] = await Promise.all([
       prisma.payment.aggregate({ _sum: { amount: true }, where: { status: 'paid'    } }),
@@ -83,7 +84,7 @@ router.get('/summary', verifyToken, async (req, res) => {
 });
 
 // ── DELETE /api/payments/:id ──────────────────────────────────────────────────
-router.delete('/:id', verifyToken, async (req, res) => {
+router.delete('/:id', verifyToken, checkPermission('canAccessPayments'), async (req, res) => {
   try {
     await prisma.payment.delete({ where: { id: Number(req.params.id) } });
     res.json({ message: 'Payment deleted.' });

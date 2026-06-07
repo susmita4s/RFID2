@@ -21,6 +21,7 @@ model User {
   staffRole String?  // e.g. "Teacher", "Librarian", "Bus Driver"
   rfidTag         String?   @unique
   isVerified      Boolean   @default(true) // Admins are true by default, Parents will be false until they set password
+  isEmailVerified Boolean   @default(false)
   registrationOtp String?
   otpExpiry       DateTime?
   resetPasswordOtp String?
@@ -332,6 +333,9 @@ model RolePermission {
   canAccessStudents   Boolean  @default(false)
   canAccessAttendance Boolean  @default(false)
   canAccessBus        Boolean  @default(false)
+  canAccessRfid       Boolean  @default(false)
+  canAccessReports    Boolean  @default(false)
+  canAccessStaffManagement Boolean @default(false)
   
   schoolId            Int?
   school              School?  @relation(fields: [schoolId], references: [id])

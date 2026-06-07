@@ -104,7 +104,7 @@ const MainApp = () => {
 
   const handleLogin = (selectedRole) => {
     const normalizedRole =
-      selectedRole.toLowerCase() === 'administrator' ? 'admin' : 
+      (selectedRole.toLowerCase() === 'administrator' || selectedRole.toLowerCase() === 'admin') ? 'admin' : 
       selectedRole.toLowerCase() === 'staff' ? 'staff' : 'parent';
     setUserRole(normalizedRole);
   };

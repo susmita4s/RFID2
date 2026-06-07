@@ -8,6 +8,7 @@ import Settings from './Settings';
 import BusBoarding from './BusBoarding';
 import ChatInbox from './ChatInbox';
 import Meetings from './Meetings';
+import StaffManagement from './StaffManagement';
 
 
 const dashStyles = `
@@ -180,7 +181,7 @@ const Dashboard = ({ onLogout, theme, toggleTheme }) => {
     id: "...",
     email: "loading@schoolhub.edu",
     lastLogin: "...",
-    schoolName: "EduScan School",
+    schoolName: "School Name Not Configured",
     staffRole: null,
     permissions: null
   });
@@ -238,7 +239,7 @@ const Dashboard = ({ onLogout, theme, toggleTheme }) => {
             email: user.email || "N/A",
             phone: user.phone || "N/A",
             lastLogin: new Date(user.createdAt).toLocaleDateString() || "Unknown",
-            schoolName: user.schoolName || user.school?.name || "EduScan School",
+            schoolName: user.schoolName || user.school?.name || "School Name Not Configured",
             staffRole: user.staffRole || null,
             permissions: user.permissions || null
           });
@@ -251,6 +252,7 @@ const Dashboard = ({ onLogout, theme, toggleTheme }) => {
               else if (perms.canAccessAttendance) setActiveTab("attendance");
               else if (perms.canAccessBus) setActiveTab("bus-boarding");
               else if (perms.canAccessPayments) setActiveTab("payments");
+              else if (perms.canAccessStaffManagement) setActiveTab("staff-management");
               else setActiveTab("settings");
             } else {
               setActiveTab("settings");
@@ -321,6 +323,7 @@ const Dashboard = ({ onLogout, theme, toggleTheme }) => {
       case 'bus-boarding': return <><PageHeader title="Bus Boarding System" /><BusBoarding date={selectedDate} /></>;
       case 'library': return <><PageHeader title="Library Logs" /><Library date={selectedDate} /></>; 
       case 'payments': return <><PageHeader title="Fee Collection" /><Payments date={selectedDate} /></>;
+      case 'staff-management': return <StaffManagement theme={theme} />;
       case 'settings': return <Settings adminData={adminData} />;
       case 'messages': return <ChatInbox theme={theme} />;
       case 'meetings': return <Meetings theme={theme} />;
@@ -432,6 +435,9 @@ const Dashboard = ({ onLogout, theme, toggleTheme }) => {
           )}
           {(!adminData.staffRole || adminData.permissions?.canAccessPayments) && (
             <NavItem active={activeTab === 'payments'} icon="credit-card" label="Payments" onClick={() => setActiveTab('payments')} collapsed={isCollapsed} />
+          )}
+          {(!adminData.staffRole || adminData.permissions?.canAccessStaffManagement) && (
+            <NavItem active={activeTab === 'staff-management'} icon="people-fill" label="Staff Management" onClick={() => setActiveTab('staff-management')} collapsed={isCollapsed} />
           )}
           
           <NavItem 
