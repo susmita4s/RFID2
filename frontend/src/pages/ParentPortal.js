@@ -16,7 +16,8 @@ const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
   const [supportMessage, setSupportMessage] = useState("");
   const [notifications, setNotifications] = useState([]);
 
-  // --- NEW: RAZORPAY & WALLET STATE ---
+  // --- PAYMENT GATEWAY & WALLET STATE ---
+  const [paymentGateway, setPaymentGateway] = useState('phonepe'); // 'razorpay' | 'phonepe'
   const [transactions, setTransactions] = useState([]);
 
   // --- NEW: RFID SCANNER STATE ---
@@ -404,7 +405,27 @@ const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
     return () => clearTimeout(timer);
   }, [addNotification]);
 
+  // ── Handle PhonePe redirect callback (URL query params) ─────────────────────
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const paymentStatus = params.get('payment');
+    const paidAmount = params.get('amount');
+    const gateway = params.get('gateway');
+    const failMsg = params.get('message');
 
+    if (paymentStatus === 'success') {
+      addNotification('Payment Successful', `₹${paidAmount} wallet recharge via ${gateway === 'phonepe' ? 'PhonePe' : 'Payment Gateway'} was successful!`);
+      // Refresh student data and transactions
+      if (student?.id) fetchTransactions(student.id);
+      // Clear URL params
+      window.history.replaceState({}, document.title, window.location.pathname);
+      setActiveTab('wallet');
+    } else if (paymentStatus === 'failed') {
+      addNotification('Payment Failed', decodeURIComponent(failMsg || 'Payment could not be completed.'));
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // --- HANDLERS ---
   const handleRecharge = async () => {
@@ -420,80 +441,91 @@ const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
 
     try {
       const token = localStorage.getItem('token');
-      
+
+      // ─── PhonePe Payment Flow ─────────────────────────────────────────────
+      if (paymentGateway === 'phonepe') {
+        const initRes = await fetch('http://localhost:5000/api/payment/phonepe/initiate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({ amount: targetAmount, studentId: targetStudentId }),
+        });
+        const initData = await initRes.json();
+
+        if (!initRes.ok || !initData.success) {
+          throw new Error(initData.message || 'Failed to initiate PhonePe payment');
+        }
+
+        // Redirect browser to PhonePe hosted payment page
+        window.location.href = initData.redirectUrl;
+        return;
+      }
+
+      // ─── Razorpay Payment Flow ────────────────────────────────────────────
       // 1. Create Order
-      const orderRes = await fetch("http://localhost:5000/api/payment/create-order", {
-        method: "POST",
+      const orderRes = await fetch('http://localhost:5000/api/payment/create-order', {
+        method: 'POST',
         headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ amount: targetAmount, studentId: targetStudentId })
       });
       const orderData = await orderRes.json();
 
       if (!orderRes.ok || !orderData.success) {
-        throw new Error(orderData.message || "Failed to create order");
+        throw new Error(orderData.message || 'Failed to create order');
       }
 
       // 2. Open Razorpay Checkout
       const options = {
-        key: orderData.key || process.env.REACT_APP_RAZORPAY_KEY_ID || "rzp_test_your_key_id",
+        key: orderData.key || process.env.REACT_APP_RAZORPAY_KEY_ID || 'rzp_test_your_key_id',
         amount: orderData.order.amount,
         currency: orderData.order.currency,
-        name: "EduScan School Management",
+        name: 'EduScan School Management',
         description: `Wallet Recharge for ${scannedStudent ? scannedStudent.name : student.name}`,
         order_id: orderData.order.id,
         prefill: {
-          contact: student ? student.emergencyContact : "",
-          email: JSON.parse(localStorage.getItem('user') || '{}').email || "parent@example.com",
+          contact: student ? student.emergencyContact : '',
+          email: JSON.parse(localStorage.getItem('user') || '{}').email || 'parent@example.com',
         },
-        method: {
-          upi: true,
-          card: true,
-          netbanking: true,
-          wallet: true
-        },
+        method: { upi: true, card: true, netbanking: true, wallet: true },
         handler: async (response) => {
           // 3. Verify Payment
-          const verifyRes = await fetch("http://localhost:5000/api/payment/verify", {
-            method: "POST",
+          const verifyRes = await fetch('http://localhost:5000/api/payment/verify', {
+            method: 'POST',
             headers: { 
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${token}`
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
             },
-            body: JSON.stringify({
-              ...response,
-              amount: targetAmount,
-              studentId: targetStudentId
-            })
+            body: JSON.stringify({ ...response, amount: targetAmount, studentId: targetStudentId })
           });
           const verifyData = await verifyRes.json();
 
           if (verifyRes.ok && verifyData.success) {
-            // Update local state
             if (scannedStudent) {
               setScannedStudent(prev => ({ ...prev, wallet_balance: verifyData.wallet.balance }));
             }
             if (student && student.id === targetStudentId) {
               setStudent(prev => ({ ...prev, wallet: verifyData.wallet.balance }));
             }
-            
-            addNotification("Payment Success", `₹${targetAmount} added to wallet.`);
+            addNotification('Payment Success', `₹${targetAmount} added to wallet.`);
             fetchTransactions(targetStudentId);
           } else {
-            addNotification("Payment Failed", verifyData.message || "Verification failed");
+            addNotification('Payment Failed', verifyData.message || 'Verification failed');
           }
         },
-        theme: { color: "#0dcaf0" },
+        theme: { color: '#0dcaf0' },
       };
 
       const rzp1 = new window.Razorpay(options);
       rzp1.open();
 
     } catch (err) {
-      console.error("Recharge Error:", err);
-      addNotification("Error", err.message || "Something went wrong.");
+      console.error('Recharge Error:', err);
+      addNotification('Error', err.message || 'Something went wrong.');
     } finally {
       setIsProcessing(false);
     }
@@ -628,7 +660,7 @@ const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
       <style>{`
         .touch-card { transition: all 0.3s ease; }
         .touch-card:hover { transform: translateY(-5px); box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
-        .nav-pill-custom { background: rgba(0,0,0,0.1); padding: 5px; border-radius: 50px; }
+        .nav-pill-custom { background: ${isDark ? 'rgba(0,0,0,0.1)' : '#f1f5f9'}; padding: 5px; border-radius: 50px; }
         .wallet-gradient { background: linear-gradient(135deg, #14c1bb 0%, #17ab9a5e 100%); color: white; }
         .scanner-box { position: relative; width: 220px; height: 220px; margin: 0 auto; border: 4px solid ${colors.accent}; border-radius: 30px; overflow: hidden; background: #111; display: flex; align-items: center; justify-content: center; }
         .scanner-line { position: absolute; width: 100%; height: 3px; background: ${colors.accent}; top: 0; box-shadow: 0 0 15px ${colors.accent}; animation: scan 2.5s infinite linear; }
@@ -644,23 +676,23 @@ const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
           display: flex;
           align-items: center;
           gap: 10px;
-          background: rgba(255, 255, 255, 0.05);
+          background: ${isDark ? 'rgba(255, 255, 255, 0.05)' : '#ffffff'};
           padding: 6px 12px;
           border-radius: 20px;
-          border: 1px solid rgba(255, 255, 255, 0.1);
+          border: 1px solid ${isDark ? 'rgba(255, 255, 255, 0.1)' : '#e2e8f0'};
           margin-right: 15px;
           cursor: pointer;
           transition: 0.3s;
-          color: white;
+          color: ${isDark ? 'white' : '#1e293b'};
         }
         .theme-toggle-wrapper:hover {
-          background: rgba(255, 255, 255, 0.1);
-          border-color: rgba(255, 255, 255, 0.2);
+          background: ${isDark ? 'rgba(255, 255, 255, 0.1)' : '#f8fafc'};
+          border-color: ${isDark ? 'rgba(255, 255, 255, 0.2)' : '#cbd5e1'};
         }
         .theme-switch {
           width: 36px;
           height: 20px;
-          background: rgba(255, 255, 255, 0.2);
+          background: ${isDark ? 'rgba(255, 255, 255, 0.2)' : '#e2e8f0'};
           border-radius: 10px;
           position: relative;
           transition: 0.3s;
@@ -701,15 +733,15 @@ const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
       </div>
       
       {/* NAVIGATION */}
-      <nav className="navbar navbar-dark bg-black px-3 py-3 sticky-top shadow-sm">
+      <nav className={`navbar px-3 py-3 sticky-top shadow-sm ${isDark ? 'navbar-dark bg-black' : 'navbar-light bg-white border-bottom'}`}>
         <div className="container-fluid">
           <div className="d-flex align-items-center">
             <div className="bg-info bg-opacity-10 p-2 rounded-3 me-2">
                 <i className="bi bi-shield-check text-info fs-4"></i>
             </div>
             <div>
-                <h6 className="m-0 text-white fw-bold">PARENT PORTAL</h6>
-                <small className="text-white-50" style={{fontSize: '10px'}}></small>
+                <h6 className={`m-0 fw-bold ${isDark ? 'text-white' : 'text-dark'}`}>PARENT PORTAL</h6>
+                <small className={isDark ? 'text-white-50' : 'text-muted'} style={{fontSize: '10px'}}></small>
             </div>
           </div>
 
@@ -717,7 +749,7 @@ const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
             {['dashboard', 'wallet', 'support', 'meetings', 'settings'].map((tab) => (
               <button
                 key={tab}
-                className={`btn btn-sm rounded-pill px-3 py-1 border-0 text-uppercase fw-bold position-relative ${activeTab === tab ? 'btn-info text-white' : 'text-white-50'}`}
+                className={`btn btn-sm rounded-pill px-3 py-1 border-0 text-uppercase fw-bold position-relative ${activeTab === tab ? 'btn-info text-white' : (isDark ? 'text-white-50' : 'text-muted')}`}
                 onClick={() => { setActiveTab(tab); setShowScanner(false); }}
                 style={{ fontSize: '0.7rem' }}
               >
@@ -736,11 +768,20 @@ const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
 
           <div className="d-flex align-items-center gap-2">
 
+            {/* Theme Toggle Button */}
+            <div className="theme-toggle-wrapper" onClick={toggleTheme}>
+              <div className={`theme-switch ${theme === 'dark' ? 'active' : ''}`}></div>
+              <span className="ms-1 small fw-bold">
+                {theme === 'dark' ? <i className="bi bi-moon-stars-fill text-info"></i> : <i className="bi bi-sun-fill text-warning"></i>}
+                <span className="ms-2 d-none d-lg-inline">{theme === 'dark' ? 'Dark Mode' : 'Light Mode'}</span>
+              </span>
+            </div>
+
             {/* ── Notification Bell ── */}
             <div className="position-relative" ref={notifBellRef}>
               <button
                 className="btn btn-sm position-relative d-flex align-items-center justify-content-center rounded-circle"
-                style={{ width: 38, height: 38, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff' }}
+                style={{ width: 38, height: 38, background: isDark ? 'rgba(255,255,255,0.08)' : '#f8fafc', border: `1px solid ${isDark ? 'rgba(255,255,255,0.15)' : '#e2e8f0'}`, color: isDark ? '#fff' : '#1e293b' }}
                 onClick={() => { setShowNotifBell(v => !v); markAllChatNotifsRead(); }}
                 title="Notifications"
               >
@@ -894,6 +935,44 @@ const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
                             ))}
                         </div>
 
+                        {/* ── Payment Gateway Selector ── */}
+                        <div className="mb-4">
+                          <label className="small fw-bold mb-2 d-block" style={{ color: colors.text }}>
+                            <i className="bi bi-credit-card-2-front me-2 text-info"></i>Payment Gateway
+                          </label>
+                          <div className="d-flex gap-2">
+                            <button
+                              onClick={() => setPaymentGateway('phonepe')}
+                              className={`btn flex-grow-1 rounded-3 py-2 fw-bold d-flex align-items-center justify-content-center gap-2 ${
+                                paymentGateway === 'phonepe' ? 'btn-primary' : 'btn-outline-secondary'
+                              }`}
+                              style={paymentGateway === 'phonepe' ? { background: '#5f259f', borderColor: '#5f259f', color: '#fff' } : {}}
+                            >
+                              <svg width="18" height="18" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="20" cy="20" r="20" fill={paymentGateway === 'phonepe' ? '#fff' : '#5f259f'}/>
+                                <text x="10" y="27" fontSize="14" fontWeight="bold" fill={paymentGateway === 'phonepe' ? '#5f259f' : '#fff'}>Pe</text>
+                              </svg>
+                              PhonePe
+                            </button>
+                            <button
+                              onClick={() => setPaymentGateway('razorpay')}
+                              className={`btn flex-grow-1 rounded-3 py-2 fw-bold d-flex align-items-center justify-content-center gap-2 ${
+                                paymentGateway === 'razorpay' ? 'btn-primary' : 'btn-outline-secondary'
+                              }`}
+                              style={paymentGateway === 'razorpay' ? { background: '#0d6efd', borderColor: '#0d6efd', color: '#fff' } : {}}
+                            >
+                              <i className="bi bi-lightning-charge-fill"></i>
+                              Razorpay
+                            </button>
+                          </div>
+                          {paymentGateway === 'phonepe' && (
+                            <div className="mt-2 small text-muted d-flex align-items-center gap-1">
+                              <i className="bi bi-shield-check text-success"></i>
+                              Secure UPI / Cards via PhonePe
+                            </div>
+                          )}
+                        </div>
+
 
 
                         {/* --- EXISTING RFID SCANNER SECTION --- */}
@@ -944,8 +1023,16 @@ const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
                         </div>
                         {/* --- END NEW RFID SCANNER SECTION --- */}
 
-                        <button onClick={handleRecharge} className="btn btn-info btn-lg w-100 rounded-pill text-white fw-bold shadow mb-3">
-                            {isProcessing ? 'Processing...' : `Pay ₹${rechargeAmount}`}
+                        <button onClick={handleRecharge} className="btn btn-lg w-100 rounded-pill fw-bold shadow mb-3 text-white"
+                            style={{ background: paymentGateway === 'phonepe' ? 'linear-gradient(135deg, #5f259f 0%, #8B37BF 100%)' : 'linear-gradient(135deg, #0dcaf0 0%, #0aa2c0 100%)' }}
+                        >
+                            {isProcessing ? (
+                              <><span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Processing...</>
+                            ) : paymentGateway === 'phonepe' ? (
+                              <><i className="bi bi-phone-fill me-2"></i>Pay ₹{rechargeAmount} via PhonePe</>
+                            ) : (
+                              <><i className="bi bi-lightning-charge-fill me-2"></i>Pay ₹{rechargeAmount} via Razorpay</>
+                            )}
                         </button>
                         <button onClick={() => setShowScanner(true)} className="btn btn-link text-info text-decoration-none w-100 small">
                             <i className="bi bi-qr-code-scan me-2"></i>Use  RFID Scanner

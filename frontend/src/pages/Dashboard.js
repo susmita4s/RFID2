@@ -13,7 +13,11 @@ import Meetings from './Meetings';
 const dashStyles = `
   .dashboard-container { 
     --dash-bg: #f8fafc;
-    --sidebar-bg: #111827;
+    --sidebar-bg: #ffffff;
+    --sidebar-text: #1e293b;
+    --sidebar-text-muted: #64748b;
+    --sidebar-hover-bg: rgba(0,0,0,0.05);
+    --sidebar-border: #e2e8f0;
     --accent-cyan: #00d9cc;
     --accent-purple: #a855f7;
     --accent-orange: #f59e0b;
@@ -30,6 +34,10 @@ const dashStyles = `
   [data-theme='dark'] .dashboard-container {
     --dash-bg: #0f172a;
     --sidebar-bg: #020617;
+    --sidebar-text: #ffffff;
+    --sidebar-text-muted: #9ca3af;
+    --sidebar-hover-bg: rgba(255,255,255,0.05);
+    --sidebar-border: #1f2937;
     --text-main: #f8fafc;
     --text-muted: #94a3b8;
     --card-bg: #1e293b;
@@ -50,13 +58,13 @@ const dashStyles = `
     transition: all 0.3s ease;
   }
   
-  .sidebar { width: 260px; background: var(--sidebar-bg); color: white; display: flex; flex-direction: column; padding: 24px; flex-shrink: 0; transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1); position: relative; z-index: 100; }
+  .sidebar { width: 260px; background: var(--sidebar-bg); color: var(--sidebar-text); border-right: 1px solid var(--sidebar-border); display: flex; flex-direction: column; padding: 24px; flex-shrink: 0; transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1); position: relative; z-index: 100; }
   .sidebar.collapsed { width: 85px; padding: 24px 15px; }
   
-  .sidebar-toggle { position: absolute; right: -12px; top: 35px; background: var(--accent-cyan); color: #111827; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; cursor: pointer; border: 2px solid white; z-index: 10; }
+  .sidebar-toggle { position: absolute; right: -12px; top: 35px; background: var(--accent-cyan); color: #111827; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; cursor: pointer; border: 2px solid var(--sidebar-bg); z-index: 10; }
 
-  .nav-item { display: flex; align-items: center; gap: 14px; padding: 12px 16px; color: #9ca3af; text-decoration: none; border-radius: 12px; margin-bottom: 6px; cursor: pointer; transition: 0.2s; font-weight: 500; white-space: nowrap; border: none; background: transparent; width: 100%; text-align: left; }
-  .nav-item:hover { color: white; background: rgba(255,255,255,0.05); }
+  .nav-item { display: flex; align-items: center; gap: 14px; padding: 12px 16px; color: var(--sidebar-text-muted); text-decoration: none; border-radius: 12px; margin-bottom: 6px; cursor: pointer; transition: 0.2s; font-weight: 500; white-space: nowrap; border: none; background: transparent; width: 100%; text-align: left; }
+  .nav-item:hover { color: var(--sidebar-text); background: var(--sidebar-hover-bg); }
   .nav-item.active { background: rgba(0, 217, 204, 0.1); color: var(--accent-cyan); }
   
   /* OVERRIDE BOOTSTRAP TEXT COLORS FOR THEME SUPPORT */

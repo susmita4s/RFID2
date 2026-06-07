@@ -8,6 +8,15 @@ const prisma = require('../prismaClient');
 // ── POST /api/payment/create-order ───────────────────────────────────────────
 router.post('/create-order', verifyToken, async (req, res) => {
   try {
+    // Validate that Razorpay credentials are configured
+    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET ||
+        process.env.RAZORPAY_KEY_ID === 'rzp_test_SpOhMNYEfkzkuQ') {
+      return res.status(503).json({
+        success: false,
+        message: 'Razorpay is not configured. Please add your own RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET from dashboard.razorpay.com to the backend .env file.'
+      });
+    }
+
     const { amount, studentId } = req.body;
     if (!amount || !studentId) {
       return res.status(400).json({ success: false, message: 'Amount and Student ID required' });
@@ -36,9 +45,13 @@ router.post('/create-order', verifyToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Create Order Error:', error);
-    res.status(500).json({ success: false, message: 'Internal server error during order creation' });
+    // Surface the actual Razorpay error message if available
+    const msg = error?.error?.description || error?.message || 'Internal server error during order creation';
+    const statusCode = error?.statusCode === 401 ? 401 : 500;
+    res.status(statusCode).json({ success: false, message: msg });
   }
 });
+
 
 // ── POST /api/payment/verify ──────────────────────────────────────────────────
 router.post('/verify', verifyToken, async (req, res) => {
