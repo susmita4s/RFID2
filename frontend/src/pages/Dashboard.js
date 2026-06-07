@@ -279,7 +279,7 @@ const Dashboard = ({ onLogout, theme, toggleTheme }) => {
       const token = localStorage.getItem('token');
       if (!token) return;
       try {
-        const response = await fetch('/api/dashboard/activities', {
+        const response = await fetch(`/api/dashboard/activities?date=${selectedDate}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (response.ok) {

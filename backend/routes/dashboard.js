@@ -32,7 +32,7 @@ router.get('/stats', verifyToken, async (req, res) => {
     // Attendance Today
     const attendanceToday = await prisma.attendance.count({
       where: {
-        ...adminFilter,
+        student: { ...adminFilter, isActive: true },
         date: {
           gte: todayStart,
           lte: todayEnd
@@ -93,17 +93,26 @@ router.get('/activities', verifyToken, async (req, res) => {
   try {
     const adminFilter = req.user.role === 'admin' ? { adminId: req.user.id } : {};
 
-    const now = new Date();
-    const todayStart = new Date(now.setHours(0, 0, 0, 0));
-    const todayEnd = new Date(now.setHours(23, 59, 59, 999));
+    const dateStr = req.query.date;
+    let targetStart, targetEnd;
 
-    // Fetch latest 5 unique student attendance records for TODAY that are NOT absent
+    if (dateStr) {
+      const [year, month, day] = dateStr.split('-');
+      const dateObj = new Date(year, month - 1, day);
+      targetStart = startOfDay(dateObj);
+      targetEnd = endOfDay(dateObj);
+    } else {
+      const now = new Date();
+      targetStart = startOfDay(now);
+      targetEnd = endOfDay(now);
+    }
+
+    // Fetch latest 5 unique student attendance records for the target date that are NOT absent
     const rfidLogs = await prisma.attendance.findMany({
       where: {
-        ...adminFilter,
-        date: { gte: todayStart, lte: todayEnd },
+        date: { gte: targetStart, lte: targetEnd },
         status: { not: 'absent' },
-        student: { isActive: true }
+        student: { ...adminFilter, isActive: true }
       },
       orderBy: { updatedAt: 'desc' },
       take: 5,
@@ -131,13 +140,17 @@ router.get('/activities', verifyToken, async (req, res) => {
       };
     });
 
-    // Fetch latest 5 Library logs
+    // Fetch latest 5 Library logs for the target date
     const libraryLogs = await prisma.libraryLog.findMany({
       where: { 
         student: { 
           ...adminFilter,
           isActive: true 
-        } 
+        },
+        OR: [
+          { borrowedAt: { gte: targetStart, lte: targetEnd } },
+          { returnedAt: { gte: targetStart, lte: targetEnd } }
+        ]
       },
       orderBy: { id: 'desc' },
       take: 5,
