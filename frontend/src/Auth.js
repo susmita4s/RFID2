@@ -90,7 +90,7 @@ const Auth = ({ onLogin, setPage, setRegisterRole, theme, toggleTheme }) => {
             const response = await fetch(loginUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
+                body: JSON.stringify({ email, password, loginType: role })
             });
 
             const data = await response.json();
@@ -113,7 +113,7 @@ const Auth = ({ onLogin, setPage, setRegisterRole, theme, toggleTheme }) => {
                     localStorage.setItem('user', JSON.stringify(userData));
                     
                     if (onLogin) {
-                        onLogin(userData.role === 'admin' ? 'administrator' : 'parent');
+                        onLogin(userData.role === 'admin' ? 'administrator' : userData.role === 'staff' ? 'staff' : 'parent');
                     }
                 }
             }

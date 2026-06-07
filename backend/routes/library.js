@@ -1,10 +1,11 @@
 const express = require('express');
 const { verifyToken } = require('./auth');
+const { checkPermission } = require('../middleware/rbac');
 
 const router = express.Router();
 const prisma = require('../prismaClient');
 // ── GET /api/library ──────────────────────────────────────────────────────────
-router.get('/', verifyToken, async (req, res) => {
+router.get('/', verifyToken, checkPermission('canAccessLibrary'), async (req, res) => {
   try {
     const { studentId, action, overdue } = req.query;
 
@@ -29,7 +30,7 @@ router.get('/', verifyToken, async (req, res) => {
 });
 
 // ── POST /api/library/borrow ──────────────────────────────────────────────────
-router.post('/borrow', verifyToken, async (req, res) => {
+router.post('/borrow', verifyToken, checkPermission('canAccessLibrary'), async (req, res) => {
   const { studentId, rfidTag, bookTitle, bookId, dueDays } = req.body;
 
   if (!bookTitle) return res.status(400).json({ error: 'Book title is required.' });
@@ -60,7 +61,7 @@ router.post('/borrow', verifyToken, async (req, res) => {
 });
 
 // ── PUT /api/library/return/:id ───────────────────────────────────────────────
-router.put('/return/:id', verifyToken, async (req, res) => {
+router.put('/return/:id', verifyToken, checkPermission('canAccessLibrary'), async (req, res) => {
   try {
     const log = await prisma.libraryLog.findUnique({ where: { id: Number(req.params.id) } });
     if (!log) return res.status(404).json({ error: 'Library record not found.' });
@@ -84,7 +85,7 @@ router.put('/return/:id', verifyToken, async (req, res) => {
 });
 
 // ── GET /api/library/overdue ──────────────────────────────────────────────────
-router.get('/overdue', verifyToken, async (req, res) => {
+router.get('/overdue', verifyToken, checkPermission('canAccessLibrary'), async (req, res) => {
   try {
     const overdueBooks = await prisma.libraryLog.findMany({
       where: { action: 'borrowed', returnedAt: null, dueDate: { lt: new Date() } },
@@ -98,7 +99,7 @@ router.get('/overdue', verifyToken, async (req, res) => {
 });
 
 // ── GET /api/library/stats ──────────────────────────────────────────────────
-router.get('/stats', verifyToken, async (req, res) => {
+router.get('/stats', verifyToken, checkPermission('canAccessLibrary'), async (req, res) => {
   try {
     const totalInventoryObj = await prisma.book.aggregate({
       _sum: { totalCopies: true }
@@ -132,7 +133,7 @@ router.get('/stats', verifyToken, async (req, res) => {
 });
 
 // ── GET /api/library/books ──────────────────────────────────────────────────
-router.get('/books', verifyToken, async (req, res) => {
+router.get('/books', verifyToken, checkPermission('canAccessLibrary'), async (req, res) => {
   try {
     const books = await prisma.book.findMany({
       orderBy: { title: 'asc' }
@@ -144,7 +145,7 @@ router.get('/books', verifyToken, async (req, res) => {
 });
 
 // ── GET /api/library/issues ──────────────────────────────────────────────────
-router.get('/issues', verifyToken, async (req, res) => {
+router.get('/issues', verifyToken, checkPermission('canAccessLibrary'), async (req, res) => {
   try {
     // Dynamically update overdue status
     await prisma.libraryIssue.updateMany({
@@ -170,7 +171,7 @@ router.get('/issues', verifyToken, async (req, res) => {
 });
 
 // ── POST /api/library/issue ──────────────────────────────────────────────────
-router.post('/issue', verifyToken, async (req, res) => {
+router.post('/issue', verifyToken, checkPermission('canAccessLibrary'), async (req, res) => {
   const { studentId, bookId, issueDate } = req.body;
   if (!studentId || !bookId) {
     return res.status(400).json({ error: 'Student ID and Book Code are required.' });
@@ -222,7 +223,7 @@ router.post('/issue', verifyToken, async (req, res) => {
 });
 
 // ── PUT /api/library/issue/:id/return ──────────────────────────────────────────
-router.put('/issue/:id/return', verifyToken, async (req, res) => {
+router.put('/issue/:id/return', verifyToken, checkPermission('canAccessLibrary'), async (req, res) => {
   try {
     const issue = await prisma.libraryIssue.findUnique({ where: { id: req.params.id } });
     if (!issue) return res.status(404).json({ error: 'Issue not found.' });

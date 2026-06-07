@@ -91,17 +91,19 @@ app.use('/api/fees', feesRoutes);
 
 // ─── Student Routes ───────────────────────────────────────────────────────────
 const studentRoutes = require('./routes/students');
-const paymentRoutes = require('./routes/payments');
 const walletRoutes = require('./routes/wallet');
 const attendanceRoutes = require('./routes/attendance');
+const paymentsRoutes = require('./routes/payments');
 const paymentRechargeRoutes = require('./routes/payment_recharge');
+const staffRoutes = require('./routes/staff');
 const chatRoutes = require('./routes/chat');
 const aiChatRoutes = require('./routes/ai-chat');
 app.use('/api/students', studentRoutes);
-app.use('/api/payments', paymentRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/attendance', attendanceRoutes);
+app.use('/api/payments', paymentsRoutes);
 app.use('/api/payment', paymentRechargeRoutes);
+app.use('/api/staff', staffRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/ai-chat', aiChatRoutes);
 

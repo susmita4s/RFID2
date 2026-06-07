@@ -441,7 +441,7 @@ const ParentPortal = ({ onLogout, theme, toggleTheme }) => {
         key: orderData.key || process.env.REACT_APP_RAZORPAY_KEY_ID || "rzp_test_your_key_id",
         amount: orderData.order.amount,
         currency: orderData.order.currency,
-        name: "EduScan School Management",
+        name: JSON.parse(localStorage.getItem('user') || '{}').schoolName || "School Name Not Configured",
         description: `Wallet Recharge for ${scannedStudent ? scannedStudent.name : student.name}`,
         order_id: orderData.order.id,
         prefill: {

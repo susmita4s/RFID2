@@ -292,6 +292,9 @@ const Register = ({ setPage, role = "parent", onLogin, theme }) => {
                 <Person className="position-absolute top-50 translate-middle-y text-muted" style={{ left: '15px', zIndex: 5 }} />
                 <input
                   type="text"
+                  id="firstName"
+                  name="firstName"
+                  autoComplete="given-name"
                   required
                   placeholder="First Name"
                   value={form.firstName}
@@ -304,6 +307,9 @@ const Register = ({ setPage, role = "parent", onLogin, theme }) => {
                 <Person className="position-absolute top-50 translate-middle-y text-muted" style={{ left: '15px', zIndex: 5 }} />
                 <input
                   type="text"
+                  id="lastName"
+                  name="lastName"
+                  autoComplete="family-name"
                   required
                   placeholder="Last Name"
                   value={form.lastName}
@@ -319,6 +325,9 @@ const Register = ({ setPage, role = "parent", onLogin, theme }) => {
                 <Building className="position-absolute top-50 translate-middle-y text-muted" style={{ left: '15px', zIndex: 5 }} />
                 <input
                   type="text"
+                  id="schoolName"
+                  name="schoolName"
+                  autoComplete="organization"
                   required
                   placeholder="School Name"
                   value={form.schoolName}
@@ -333,6 +342,8 @@ const Register = ({ setPage, role = "parent", onLogin, theme }) => {
               <div className="mb-3 position-relative">
                 <Briefcase className="position-absolute top-50 translate-middle-y text-muted" style={{ left: '15px', zIndex: 5 }} />
                 <select
+                  id="staffRole"
+                  name="staffRole"
                   required
                   value={form.staffRole}
                   onChange={(e) => setForm({ ...form, staffRole: e.target.value })}
@@ -351,6 +362,9 @@ const Register = ({ setPage, role = "parent", onLogin, theme }) => {
               <Envelope className="position-absolute top-50 translate-middle-y text-muted" style={{ left: '15px', zIndex: 5 }} />
               <input
                 type="email"
+                id="email"
+                name="email"
+                autoComplete="email"
                 required
                 placeholder="Email Address"
                 value={form.email}
@@ -364,6 +378,9 @@ const Register = ({ setPage, role = "parent", onLogin, theme }) => {
               <Telephone className="position-absolute top-50 translate-middle-y text-muted" style={{ left: '15px', zIndex: 5 }} />
               <input
                 type="tel"
+                id="phone"
+                name="phone"
+                autoComplete="tel"
                 required
                 placeholder="Phone Number"
                 value={form.phone}
@@ -377,6 +394,9 @@ const Register = ({ setPage, role = "parent", onLogin, theme }) => {
               <Lock className="position-absolute top-50 translate-middle-y text-muted" style={{ left: '15px', zIndex: 5 }} />
               <input
                 type={showPassword ? "text" : "password"}
+                id="password"
+                name="password"
+                autoComplete="new-password"
                 required
                 placeholder="Password"
                 value={form.password}
@@ -398,6 +418,9 @@ const Register = ({ setPage, role = "parent", onLogin, theme }) => {
               <Lock className="position-absolute top-50 translate-middle-y text-muted" style={{ left: '15px', zIndex: 5 }} />
               <input
                 type={showConfirmPassword ? "text" : "password"}
+                id="confirmPassword"
+                name="confirmPassword"
+                autoComplete="new-password"
                 required
                 placeholder="Confirm Password"
                 value={form.confirmPassword}

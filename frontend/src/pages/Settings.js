@@ -5,6 +5,7 @@ const Settings = ({ adminData = {} }) => {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [schoolName, setSchoolName] = useState('');
 
   // State for Security
   const [currentPassword, setCurrentPassword] = useState('');
@@ -30,6 +31,7 @@ const Settings = ({ adminData = {} }) => {
       setFullName(adminData.name || '');
       setEmail(adminData.email || '');
       setPhone(adminData.phone || '');
+      setSchoolName(adminData.schoolName || '');
     }
   }, [adminData]);
 
@@ -78,6 +80,10 @@ const Settings = ({ adminData = {} }) => {
       email: email.trim(),
       phone: phone.trim()
     };
+
+    if (adminData && (adminData.role === 'Administrator' || adminData.role === 'admin')) {
+      payload.schoolName = schoolName.trim();
+    }
 
     if (currentPassword && newPassword) {
       payload.currentPassword = currentPassword;
@@ -150,9 +156,15 @@ const Settings = ({ adminData = {} }) => {
               <div className="col-md-6">
                 <SettingsInput label="Phone Number" value={phone} onChange={(e) => setPhone(e.target.value)} />
               </div>
-              <div className="col-md-6">
-                <SettingsInput label="Role" value={adminData.role || "N/A"} disabled />
-              </div>
+              {(adminData.role === "Administrator" || adminData.role === "admin") ? (
+                <div className="col-md-6">
+                  <SettingsInput label="School Name" value={schoolName} onChange={(e) => setSchoolName(e.target.value)} />
+                </div>
+              ) : (
+                <div className="col-md-6">
+                  <SettingsInput label="Role" value={adminData.role || "N/A"} disabled />
+                </div>
+              )}
             </div>
           </SettingsCard>
 
@@ -345,6 +357,9 @@ const RolePermissionsSection = () => {
   const [canAccessStudents, setCanAccessStudents] = useState(false);
   const [canAccessAttendance, setCanAccessAttendance] = useState(false);
   const [canAccessBus, setCanAccessBus] = useState(false);
+  const [canAccessRfid, setCanAccessRfid] = useState(false);
+  const [canAccessReports, setCanAccessReports] = useState(false);
+  const [canAccessStaffManagement, setCanAccessStaffManagement] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -378,6 +393,9 @@ const RolePermissionsSection = () => {
     setCanAccessStudents(false);
     setCanAccessAttendance(false);
     setCanAccessBus(false);
+    setCanAccessRfid(false);
+    setCanAccessReports(false);
+    setCanAccessStaffManagement(false);
     setError('');
     setShowModal(true);
   };
@@ -401,7 +419,10 @@ const RolePermissionsSection = () => {
           canAccessPayments,
           canAccessStudents,
           canAccessAttendance,
-          canAccessBus
+          canAccessBus,
+          canAccessRfid,
+          canAccessReports,
+          canAccessStaffManagement
         })
       });
       const data = await res.json();
@@ -671,6 +692,42 @@ const RolePermissionsSection = () => {
                     />
                   </div>
                 </div>
+
+                <div className="d-flex justify-content-between align-items-center py-2 border-bottom border-light">
+                  <span className="small fw-semibold">RFID Panel Access</span>
+                  <div className="form-check form-switch">
+                    <input 
+                      className="form-check-input shadow-none cursor-pointer" 
+                      type="checkbox" 
+                      checked={canAccessRfid} 
+                      onChange={(e) => setCanAccessRfid(e.target.checked)} 
+                    />
+                  </div>
+                </div>
+
+                <div className="d-flex justify-content-between align-items-center py-2 border-bottom border-light">
+                  <span className="small fw-semibold">Reports Panel Access</span>
+                  <div className="form-check form-switch">
+                    <input 
+                      className="form-check-input shadow-none cursor-pointer" 
+                      type="checkbox" 
+                      checked={canAccessReports} 
+                      onChange={(e) => setCanAccessReports(e.target.checked)} 
+                    />
+                  </div>
+                </div>
+
+                <div className="d-flex justify-content-between align-items-center py-2">
+                  <span className="small fw-semibold">Staff Management Access</span>
+                  <div className="form-check form-switch">
+                    <input 
+                      className="form-check-input shadow-none cursor-pointer" 
+                      type="checkbox" 
+                      checked={canAccessStaffManagement} 
+                      onChange={(e) => setCanAccessStaffManagement(e.target.checked)} 
+                    />
+                  </div>
+                </div>
               </div>
 
               {error && <div className="text-danger small mb-3">{error}</div>}
@@ -736,6 +793,21 @@ const RolePermissionsSection = () => {
                 title="Bus Boarding Panel Access" 
                 checked={activeRolePermissions.canAccessBus} 
                 onChange={() => handleToggle(activeRolePermissions.id, 'canAccessBus', activeRolePermissions.canAccessBus)} 
+              />
+              <RoleToggleRow 
+                title="RFID Panel Access" 
+                checked={activeRolePermissions.canAccessRfid} 
+                onChange={() => handleToggle(activeRolePermissions.id, 'canAccessRfid', activeRolePermissions.canAccessRfid)} 
+              />
+              <RoleToggleRow 
+                title="Reports Panel Access" 
+                checked={activeRolePermissions.canAccessReports} 
+                onChange={() => handleToggle(activeRolePermissions.id, 'canAccessReports', activeRolePermissions.canAccessReports)} 
+              />
+              <RoleToggleRow 
+                title="Staff Management Access" 
+                checked={activeRolePermissions.canAccessStaffManagement} 
+                onChange={() => handleToggle(activeRolePermissions.id, 'canAccessStaffManagement', activeRolePermissions.canAccessStaffManagement)} 
               />
             </div>
 

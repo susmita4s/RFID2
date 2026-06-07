@@ -1,5 +1,6 @@
 const express = require('express');
 const { verifyToken } = require('./auth');
+const { checkPermission } = require('../middleware/rbac');
 
 const router = express.Router();
 const prisma = require('../prismaClient');
@@ -7,7 +8,7 @@ const prisma = require('../prismaClient');
 const getIo = (req) => req.app.get('io');
 
 // ── 1. GET ALL BUSES ──────────────────────────────────────────────────────────
-router.get('/', verifyToken, async (req, res) => {
+router.get('/', verifyToken, checkPermission('canAccessBus'), async (req, res) => {
   try {
     const buses = await prisma.bus.findMany({
       include: {
@@ -31,7 +32,7 @@ router.get('/', verifyToken, async (req, res) => {
 });
 
 // ── 2. GET LIVE BOARDING ACTIVITY ─────────────────────────────────────────────
-router.get('/boarding-activity', verifyToken, async (req, res) => {
+router.get('/boarding-activity', verifyToken, checkPermission('canAccessBus'), async (req, res) => {
   try {
     // Only get today's logs
     const today = new Date();
@@ -57,7 +58,7 @@ router.get('/boarding-activity', verifyToken, async (req, res) => {
 });
 
 // ── 3. CREATE BOARDING ENTRY (MANUAL) ─────────────────────────────────────────
-router.post('/board-student', verifyToken, async (req, res) => {
+router.post('/board-student', verifyToken, checkPermission('canAccessBus'), async (req, res) => {
   const { studentDbId, busId, locationName } = req.body;
   
   if (!studentDbId || !busId || !locationName) {
@@ -106,7 +107,7 @@ router.post('/board-student', verifyToken, async (req, res) => {
 });
 
 // ── 4. LIVE BUS LOCATION UPDATE ───────────────────────────────────────────────
-router.patch('/location/:id', verifyToken, async (req, res) => {
+router.patch('/location/:id', verifyToken, checkPermission('canAccessBus'), async (req, res) => {
   const { currentLatitude, currentLongitude } = req.body;
   const busId = Number(req.params.id);
 
@@ -130,7 +131,7 @@ router.patch('/location/:id', verifyToken, async (req, res) => {
 });
 
 // ── 5. UPDATE BUS STATUS ──────────────────────────────────────────────────────
-router.patch('/status/:id', verifyToken, async (req, res) => {
+router.patch('/status/:id', verifyToken, checkPermission('canAccessBus'), async (req, res) => {
   const { status } = req.body;
   const busId = Number(req.params.id);
 
@@ -150,7 +151,7 @@ router.patch('/status/:id', verifyToken, async (req, res) => {
 });
 
 // ── 6. GET SINGLE BUS DETAILS ─────────────────────────────────────────────────
-router.get('/:id', verifyToken, async (req, res) => {
+router.get('/:id', verifyToken, checkPermission('canAccessBus'), async (req, res) => {
   const busId = Number(req.params.id);
 
   try {
@@ -173,7 +174,7 @@ router.get('/:id', verifyToken, async (req, res) => {
 });
 
 // ── 7. DELETE BOARDING ENTRY ──────────────────────────────────────────────────
-router.delete('/boarding/:id', verifyToken, async (req, res) => {
+router.delete('/boarding/:id', verifyToken, checkPermission('canAccessBus'), async (req, res) => {
   const logId = Number(req.params.id);
 
   try {

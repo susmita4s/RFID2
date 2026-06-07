@@ -1,6 +1,7 @@
 const express = require('express');
 const crypto  = require('crypto');
 const { verifyToken } = require('./auth');
+const { checkPermission } = require('../middleware/rbac');
 const { parseISO, startOfDay, addMinutes } = require('date-fns');
 const multer = require('multer');
 const { storage } = require('../cloudinary');
@@ -60,7 +61,7 @@ const convertToLocalDate = (dateStr) => {
 };
 
 // ── GET /api/students ─────────────────────────────────────────────────────────
-router.get('/', verifyToken, async (req, res) => {
+router.get('/', verifyToken, checkPermission('canAccessStudents'), async (req, res) => {
   try {
     const { search, class: cls, status, joinedDate } = req.query;
     
@@ -100,7 +101,7 @@ router.get('/', verifyToken, async (req, res) => {
 });
 
 // ── GET /api/students/:id ─────────────────────────────────────────────────────
-router.get('/:id', verifyToken, async (req, res) => {
+router.get('/:id', verifyToken, checkPermission('canAccessStudents'), async (req, res) => {
   try {
     const student = await prisma.student.findUnique({
       where: { id: Number(req.params.id) },
@@ -312,7 +313,7 @@ async function registerSingleStudent({
   }
 }
 
-router.post('/create', verifyToken, upload.single('profileImage'), async (req, res) => {
+router.post('/create', verifyToken, checkPermission('canAccessStudents'), upload.single('profileImage'), async (req, res) => {
   const { fullName, email, phoneNumber, gender, className, guardianName, rfidTag, joinedDate } = req.body;
   const profileImage = req.file ? req.file.path : null;
 
@@ -334,7 +335,7 @@ router.post('/create', verifyToken, upload.single('profileImage'), async (req, r
 });
 
 // ── POST /api/students/import ─────────────────────────────────────────────────
-router.post('/import', verifyToken, async (req, res) => {
+router.post('/import', verifyToken, checkPermission('canAccessStudents'), async (req, res) => {
   const { students } = req.body;
   if (!students || !Array.isArray(students)) {
     return res.status(400).json({ success: false, message: 'Invalid payload.' });
@@ -403,7 +404,7 @@ router.post('/import', verifyToken, async (req, res) => {
 });
 
 // ── PUT /api/students/:id ─────────────────────────────────────────────────────
-router.put('/:id', verifyToken, upload.single('profileImage'), async (req, res) => {
+router.put('/:id', verifyToken, checkPermission('canAccessStudents'), upload.single('profileImage'), async (req, res) => {
   try {
     const studentId = Number(req.params.id);
     const existing = await prisma.student.findUnique({ where: { id: studentId } });
@@ -441,7 +442,7 @@ router.put('/:id', verifyToken, upload.single('profileImage'), async (req, res) 
 });
 
 // ── PATCH /api/students/:id/status ────────────────────────────────────────────
-router.patch('/:id/status', verifyToken, async (req, res) => {
+router.patch('/:id/status', verifyToken, checkPermission('canAccessStudents'), async (req, res) => {
   try {
     const studentId = Number(req.params.id);
     const { status } = req.body;
@@ -475,7 +476,7 @@ router.patch('/:id/status', verifyToken, async (req, res) => {
 });
 
 // ── DELETE /api/students/:id ──────────────────────────────────────────────────
-router.delete('/:id', verifyToken, async (req, res) => {
+router.delete('/:id', verifyToken, checkPermission('canAccessStudents'), async (req, res) => {
   try {
     const studentId = Number(req.params.id);
     const existing = await prisma.student.findUnique({ where: { id: studentId } });
@@ -494,7 +495,7 @@ router.delete('/:id', verifyToken, async (req, res) => {
 });
 
 // ── POST /api/students/assign-rfid ────────────────────────────────────────────
-router.post('/assign-rfid', verifyToken, async (req, res) => {
+router.post('/assign-rfid', verifyToken, checkPermission('canAccessStudents'), async (req, res) => {
   try {
     // Just generate a unique unused RFID string
     let rfid = '';
